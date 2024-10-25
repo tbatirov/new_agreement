@@ -40,3 +40,69 @@ msgstr ""
 
 msgid "Purchase Agreement"
 msgstr ""
+
+msgid "Toggle navigation"
+msgstr ""
+
+msgid "Select Language"
+msgstr ""
+
+msgid "Language changed to %(language)s"
+msgstr ""
+
+msgid "Invalid language selected"
+msgstr ""
+
+msgid "Agreement content is required"
+msgstr ""
+
+msgid "Agreement created successfully"
+msgstr ""
+
+msgid "Both signatures are required"
+msgstr ""
+
+msgid "Agreement signed successfully"
+msgstr ""
+
+msgid "Welcome to Legal Agreement Generator"
+msgstr ""
+
+msgid "Create and sign legal agreements quickly using voice or text input"
+msgstr ""
+
+msgid "Create New Agreement"
+msgstr ""
+
+msgid "Start Voice Input"
+msgstr ""
+
+msgid "Stop Voice Input"
+msgstr ""
+
+msgid "Choose a template..."
+msgstr ""
+
+msgid "Load Template"
+msgstr ""
+
+msgid "Agreement Content"
+msgstr ""
+
+msgid "Real-time Analysis"
+msgstr ""
+
+msgid "Industry Context"
+msgstr ""
+
+msgid "Key Terms"
+msgstr ""
+
+msgid "Risk Assessment"
+msgstr ""
+
+msgid "Compliance & Jurisdiction"
+msgstr ""
+
+msgid "Improvement Suggestions"
+msgstr ""

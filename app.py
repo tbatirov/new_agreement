@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify, g
+from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify, g, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from flask_babel import Babel, gettext as _
@@ -29,15 +29,11 @@ app.config['LANGUAGES'] = {
     'zh': '中文'
 }
 
-class Agreement(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.Text, nullable=False)
-    signature1 = db.Column(db.Text)
-    signature2 = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    signed_at = db.Column(db.DateTime)
-
 def get_locale():
+    # First try to get language from session
+    if 'lang_code' in session:
+        return session['lang_code']
+    # Then try to get it from the request header
     if not g.get('lang_code', None):
         g.lang_code = request.accept_languages.best_match(app.config['LANGUAGES'].keys())
     return g.lang_code
@@ -48,13 +44,18 @@ db.init_app(app)
 @app.route('/language/<lang_code>')
 def set_language(lang_code):
     if lang_code in app.config['LANGUAGES']:
+        session['lang_code'] = lang_code
         g.lang_code = lang_code
+        flash(_('Language changed to %(language)s', language=app.config['LANGUAGES'][lang_code]), 'success')
         return redirect(request.referrer or url_for('index'))
+    flash(_('Invalid language selected'), 'error')
     return redirect(url_for('index'))
 
 @app.before_request
 def before_request():
-    if not g.get('lang_code', None):
+    if 'lang_code' in session:
+        g.lang_code = session['lang_code']
+    else:
         g.lang_code = request.accept_languages.best_match(app.config['LANGUAGES'].keys())
 
 with app.app_context():
@@ -104,12 +105,17 @@ def suggest_template():
 def create_agreement():
     if request.method == 'POST':
         content = request.form.get('content')
+        if not content:
+            flash(_('Agreement content is required'), 'error')
+            return redirect(url_for('create_agreement'))
+            
         agreement = Agreement(
             content=content,
             created_at=datetime.utcnow()
         )
         db.session.add(agreement)
         db.session.commit()
+        flash(_('Agreement created successfully'), 'success')
         return redirect(url_for('sign_agreement', id=agreement.id))
     return render_template('create_agreement.html', languages=app.config['LANGUAGES'])
 
@@ -119,10 +125,15 @@ def sign_agreement(id):
     if request.method == 'POST':
         signature1 = request.form.get('signature1')
         signature2 = request.form.get('signature2')
+        if not signature1 or not signature2:
+            flash(_('Both signatures are required'), 'error')
+            return redirect(url_for('sign_agreement', id=id))
+            
         agreement.signature1 = signature1
         agreement.signature2 = signature2
         agreement.signed_at = datetime.utcnow()
         db.session.commit()
+        flash(_('Agreement signed successfully'), 'success')
         return redirect(url_for('view_agreement', id=id))
     return render_template('sign_agreement.html', agreement=agreement, languages=app.config['LANGUAGES'])
 
