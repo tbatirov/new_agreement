@@ -8,7 +8,8 @@
             <h5>Voice Input Instructions:</h5>
             <ul class="mb-0">
                 <li>Make sure you're using a modern browser (Chrome recommended)</li>
-                <li>Allow microphone access when prompted</li>
+                <li>Allow microphone access when prompted by your browser</li>
+                <li>If denied, use the "Retry Microphone Access" button or enable it in your browser settings</li>
                 <li>Speak clearly and at a normal pace</li>
                 <li>Use the Stop button when you're done speaking</li>
             </ul>
@@ -17,7 +18,7 @@
             <div class="mb-3">
                 <label class="form-label">Agreement Content</label>
                 <div class="d-flex gap-2 mb-2">
-                    <button type="button" id="startVoice" class="btn btn-secondary">
+                    <button type="button" id="startVoice" class="btn btn-secondary" disabled>
                         <i class="bi bi-mic-fill"></i> Start Voice Input
                     </button>
                     <button type="button" id="stopVoice" class="btn btn-danger" disabled>

@@ -3,28 +3,101 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopButton = document.getElementById('stopVoice');
     const contentArea = document.getElementById('content');
     
-    // Add status message div
-    const statusDiv = document.createElement('div');
-    statusDiv.className = 'alert alert-info d-none';
-    statusDiv.id = 'voiceStatus';
-    contentArea.parentNode.insertBefore(statusDiv, contentArea);
+    // Add status message and retry button container
+    const statusContainer = document.createElement('div');
+    statusContainer.className = 'mb-3';
+    statusContainer.innerHTML = `
+        <div id="voiceStatus" class="alert alert-info d-none"></div>
+        <div id="permissionStatus" class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-mic-mute text-danger"></i>
+            <span>Checking microphone permissions...</span>
+        </div>
+        <button type="button" id="retryPermission" class="btn btn-outline-primary d-none">
+            <i class="bi bi-arrow-clockwise"></i> Retry Microphone Access
+        </button>
+    `;
+    contentArea.parentNode.insertBefore(statusContainer, contentArea);
     
+    const permissionStatus = document.getElementById('permissionStatus');
+    const retryButton = document.getElementById('retryPermission');
     let recognition = null;
     
     // Check for HTTPS context
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '0.0.0.0') {
         showStatus('Speech recognition requires HTTPS for security reasons.', 'warning');
-        disableVoiceInput();
+        updatePermissionStatus('blocked', 'HTTPS required');
         return;
     }
     
-    if ('webkitSpeechRecognition' in window) {
+    // Function to check microphone permissions
+    async function checkMicrophonePermission() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(track => track.stop());
+            updatePermissionStatus('granted');
+            initializeSpeechRecognition();
+            return true;
+        } catch (error) {
+            console.error('Microphone permission error:', error);
+            if (error.name === 'NotAllowedError') {
+                updatePermissionStatus('denied');
+                showRetryButton();
+            } else {
+                updatePermissionStatus('error', error.message);
+            }
+            return false;
+        }
+    }
+    
+    function updatePermissionStatus(status, message) {
+        const statusMap = {
+            'granted': { icon: 'bi-mic-fill text-success', text: 'Microphone access granted' },
+            'denied': { icon: 'bi-mic-mute text-danger', text: 'Microphone access denied' },
+            'blocked': { icon: 'bi-shield-exclamation text-warning', text: message || 'Microphone access blocked' },
+            'error': { icon: 'bi-exclamation-triangle text-danger', text: message || 'Error accessing microphone' }
+        };
+        
+        const statusInfo = statusMap[status];
+        permissionStatus.innerHTML = `
+            <i class="bi ${statusInfo.icon}"></i>
+            <span>${statusInfo.text}</span>
+        `;
+        
+        if (status === 'granted') {
+            startButton.disabled = false;
+            retryButton.classList.add('d-none');
+        } else {
+            disableVoiceInput();
+        }
+    }
+    
+    function showRetryButton() {
+        retryButton.classList.remove('d-none');
+        showStatus('Please allow microphone access in your browser settings or click Retry.', 'warning');
+    }
+    
+    retryButton.addEventListener('click', async () => {
+        retryButton.disabled = true;
+        showStatus('Requesting microphone access...', 'info');
+        await checkMicrophonePermission();
+        retryButton.disabled = false;
+    });
+    
+    function initializeSpeechRecognition() {
+        if (!('webkitSpeechRecognition' in window)) {
+            showStatus('Speech recognition is not supported in your browser. Please use Chrome.', 'warning');
+            updatePermissionStatus('blocked', 'Browser not supported');
+            return;
+        }
+        
         recognition = new webkitSpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
         
         recognition.onstart = () => {
             showStatus('Listening... Speak clearly into your microphone.', 'info');
+            startButton.innerHTML = '<i class="bi bi-mic-fill"></i> Recording...';
+            startButton.classList.replace('btn-secondary', 'btn-success');
         };
         
         recognition.onresult = (event) => {
@@ -44,8 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             switch (event.error) {
                 case 'not-allowed':
-                    showStatus('Microphone access denied. Please allow microphone access in your browser settings and try again.', 'danger');
-                    disableVoiceInput();
+                    updatePermissionStatus('denied');
+                    showRetryButton();
                     break;
                 case 'no-speech':
                     showStatus('No speech detected. Please try speaking again.', 'warning');
@@ -64,15 +137,10 @@ document.addEventListener('DOMContentLoaded', () => {
             stopVoiceInput();
             showStatus('Voice input stopped.', 'info');
         };
-    } else {
-        showStatus('Speech recognition is not supported in your browser. Please use a modern browser like Chrome.', 'warning');
-        disableVoiceInput();
     }
     
     startButton.addEventListener('click', () => {
         if (recognition) {
-            // Add instructions before starting
-            showStatus('Please allow microphone access when prompted by your browser.', 'info');
             try {
                 recognition.start();
                 startButton.disabled = true;
@@ -95,12 +163,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             startButton.disabled = false;
             stopButton.disabled = true;
+            startButton.innerHTML = '<i class="bi bi-mic-fill"></i> Start Voice Input';
+            startButton.classList.replace('btn-success', 'btn-secondary');
         }
     }
     
     function showStatus(message, type) {
         const statusDiv = document.getElementById('voiceStatus');
-        statusDiv.className = `alert alert-${type} mt-2`;
+        statusDiv.className = `alert alert-${type}`;
         statusDiv.textContent = message;
         statusDiv.classList.remove('d-none');
     }
@@ -109,4 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         startButton.disabled = true;
         stopButton.disabled = true;
     }
+    
+    // Initialize permission check
+    checkMicrophonePermission();
 });
