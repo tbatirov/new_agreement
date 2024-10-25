@@ -4,37 +4,49 @@
 <div class="row">
     <div class="col-md-6">
         <h2>{{ _('Create Agreement') }}</h2>
-        <!-- Voice input instructions moved to collapsible section -->
+        
+        <!-- Form status alerts -->
+        <div id="formAlerts" class="sticky-top pt-2"></div>
+        
+        <!-- Optional Voice Input -->
         <div class="accordion mb-3" id="voiceInstructionsAccordion">
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#voiceInstructions">
-                        {{ _('Voice Input Instructions') }}
+                        {{ _('Voice Input (Optional)') }}
                     </button>
                 </h2>
                 <div id="voiceInstructions" class="accordion-collapse collapse" data-bs-parent="#voiceInstructionsAccordion">
                     <div class="accordion-body">
-                        <ul class="mb-0">
-                            <li>{{ _('Make sure you\'re using a modern browser (Chrome recommended)') }}</li>
-                            <li>{{ _('Allow microphone access when prompted by your browser') }}</li>
-                            <li>{{ _('If denied, use the "Retry Microphone Access" button or enable it in your browser settings') }}</li>
-                            <li>{{ _('Speak clearly and at a normal pace') }}</li>
-                            <li>{{ _('Use the Stop button when you\'re done speaking') }}</li>
-                        </ul>
+                        <div id="voiceControls" class="d-flex gap-2 mb-2">
+                            <button type="button" id="startVoice" class="btn btn-secondary" disabled>
+                                <i class="bi bi-mic-fill"></i> {{ _('Start Voice Input') }}
+                            </button>
+                            <button type="button" id="stopVoice" class="btn btn-danger" disabled>
+                                <i class="bi bi-stop-fill"></i> {{ _('Stop Voice Input') }}
+                            </button>
+                        </div>
+                        <div id="microphoneStatus" class="alert alert-info d-none mb-2">
+                            <i class="bi bi-info-circle"></i> <span></span>
+                        </div>
+                        <small class="text-muted">
+                            {{ _('Voice input is optional. You can type directly into the content area below.') }}
+                        </small>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Form status alerts -->
-        <div id="formAlerts"></div>
-
         <form method="POST" id="agreementForm" novalidate>
+            <!-- CSRF Protection -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <meta name="csrf-token" content="{{ csrf_token() }}">
+            
             <!-- Template Selection -->
             <div class="mb-3">
-                <label class="form-label">{{ _('Select Template') }}</label>
+                <label class="form-label required">{{ _('Select Template') }}</label>
                 <div class="d-flex gap-2 mb-2">
-                    <select class="form-select" id="templateSelect">
+                    <select class="form-select" id="templateSelect" required>
                         <option value="">{{ _('Choose a template...') }}</option>
                     </select>
                     <button type="button" id="loadTemplate" class="btn btn-secondary">
@@ -47,27 +59,23 @@
 
             <!-- Agreement Content -->
             <div class="mb-3">
-                <label class="form-label">{{ _('Agreement Content') }}</label>
-                <div id="voiceControls" class="d-flex gap-2 mb-2">
-                    <button type="button" id="startVoice" class="btn btn-secondary" disabled>
-                        <i class="bi bi-mic-fill"></i> {{ _('Start Voice Input') }}
-                    </button>
-                    <button type="button" id="stopVoice" class="btn btn-danger" disabled>
-                        <i class="bi bi-stop-fill"></i> {{ _('Stop Voice Input') }}
-                    </button>
-                </div>
-                <div id="microphoneStatus" class="alert alert-info d-none mb-2">
-                    <i class="bi bi-info-circle"></i> <span></span>
-                </div>
-                <textarea class="form-control" name="content" id="content" rows="15" required></textarea>
-                <div class="invalid-feedback">{{ _('Agreement content is required') }}</div>
+                <label class="form-label required">{{ _('Agreement Content') }}</label>
+                <textarea class="form-control" name="content" id="content" rows="15" required 
+                          minlength="10" data-error="{{ _('Please enter at least 10 characters') }}"></textarea>
+                <div class="invalid-feedback">{{ _('Agreement content is required (minimum 10 characters)') }}</div>
+                <div class="valid-feedback">{{ _('Content looks good!') }}</div>
             </div>
 
             <!-- Submit Button -->
-            <button type="submit" id="submitButton" class="btn btn-primary">
-                <span class="spinner-border spinner-border-sm d-none" role="status"></span>
-                <span class="button-text">{{ _('Create Agreement') }}</span>
-            </button>
+            <div class="d-flex gap-2">
+                <button type="submit" id="submitButton" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                    <span class="button-text">{{ _('Create Agreement') }}</span>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="window.location.href='/'">
+                    {{ _('Cancel') }}
+                </button>
+            </div>
         </form>
     </div>
 
@@ -88,9 +96,6 @@
                         <p class="text-muted">{{ _('Start typing to see the preview...') }}</p>
                     </div>
                 </div>
-            </div>
-            <div id="analysisSection" class="d-none">
-                <!-- Analysis sections remain unchanged -->
             </div>
         </div>
     </div>
@@ -120,45 +125,15 @@
 <script src="{{ url_for('static', filename='js/template-loader.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Find all required DOM elements
-    const elements = {
-        form: document.getElementById('agreementForm'),
-        submitButton: document.getElementById('submitButton'),
-        spinner: document.querySelector('#submitButton .spinner-border'),
-        buttonText: document.querySelector('#submitButton .button-text'),
-        contentArea: document.getElementById('content'),
-        templateSelect: document.getElementById('templateSelect'),
-        loadTemplateBtn: document.getElementById('loadTemplate'),
-        templateFeedback: document.getElementById('templateFeedback'),
-        previewContent: document.getElementById('previewContent'),
-        previewSpinner: document.getElementById('previewSpinner'),
-        formAlerts: document.getElementById('formAlerts'),
-        errorModal: new bootstrap.Modal(document.getElementById('errorModal')),
-        microphoneStatus: document.getElementById('microphoneStatus'),
-        voiceControls: document.getElementById('voiceControls')
-    };
-
-    // Validate required elements
-    const missingElements = Object.entries(elements)
-        .filter(([key, element]) => !element)
-        .map(([key]) => key);
-
-    if (missingElements.length > 0) {
-        console.error('Missing required elements:', missingElements.join(', '));
-        showAlert('Error initializing form components', 'danger');
-        return;
-    }
-
+    // Initialize form elements
+    const form = document.getElementById('agreementForm');
+    const submitButton = document.getElementById('submitButton');
+    const formAlerts = document.getElementById('formAlerts');
+    const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+    
     // Initialize template loader
-    let templateLoader = null;
-    try {
-        templateLoader = new TemplateLoader();
-        console.log('Template loader initialized successfully');
-    } catch (error) {
-        console.error('Error initializing template loader:', error);
-        showAlert('Error loading templates', 'danger');
-    }
-
+    const templateLoader = new TemplateLoader();
+    
     function showAlert(message, type = 'info', timeout = 5000) {
         const alert = document.createElement('div');
         alert.className = `alert alert-${type} alert-dismissible fade show`;
@@ -166,189 +141,100 @@ document.addEventListener('DOMContentLoaded', () => {
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        elements.formAlerts.appendChild(alert);
-
+        formAlerts.appendChild(alert);
+        
         if (timeout) {
-            setTimeout(() => {
-                alert.remove();
-            }, timeout);
+            setTimeout(() => alert.remove(), timeout);
         }
     }
-
-    function showError(message) {
-        const errorMessage = document.getElementById('errorMessage');
-        if (errorMessage) {
-            errorMessage.textContent = message;
-            elements.errorModal.show();
-        } else {
-            showAlert(message, 'danger');
-        }
-    }
-
+    
     function setSubmitButtonState(isLoading) {
-        elements.submitButton.disabled = isLoading;
-        elements.spinner.classList.toggle('d-none', !isLoading);
-        elements.buttonText.textContent = isLoading ? '{{ _("Creating...") }}' : '{{ _("Create Agreement") }}';
+        submitButton.disabled = isLoading;
+        submitButton.querySelector('.spinner-border').classList.toggle('d-none', !isLoading);
+        submitButton.querySelector('.button-text').textContent = 
+            isLoading ? '{{ _("Creating...") }}' : '{{ _("Create Agreement") }}';
     }
-
-    // Handle microphone status updates
-    window.updateMicrophoneStatus = function(status, message) {
-        if (elements.microphoneStatus) {
-            elements.microphoneStatus.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-warning', 'alert-danger');
-            
-            const statusClasses = {
-                'info': 'alert-info',
-                'success': 'alert-success',
-                'warning': 'alert-warning',
-                'error': 'alert-danger'
-            };
-
-            elements.microphoneStatus.classList.add(statusClasses[status] || 'alert-info');
-            elements.microphoneStatus.querySelector('span').textContent = message;
-        }
-    };
-
-    // Handle form submission
-    elements.form.addEventListener('submit', async (e) => {
+    
+    // Form validation and submission
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        console.log('Form submission started');
         
         // Reset validation state
-        elements.form.classList.remove('was-validated');
+        form.classList.remove('was-validated');
         
-        // Validate content
-        if (!elements.contentArea.value.trim()) {
-            console.log('Validation failed: Content is empty');
-            elements.form.classList.add('was-validated');
+        // Validate form
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            showAlert('{{ _("Please fix the validation errors") }}', 'warning');
             return;
         }
         
         try {
             setSubmitButtonState(true);
-            console.log('Submitting form data');
             
-            const formData = new FormData(elements.form);
+            const formData = new FormData(form);
             const response = await fetch('{{ url_for("create_agreement") }}', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                }
             });
             
-            console.log('Response received:', response.status);
-            
             if (!response.ok) {
-                throw new Error('{{ _("Failed to create agreement. Please try again.") }}');
-            }
-            
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                if (data.error) {
-                    throw new Error(data.error);
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    throw new Error(data.error || '{{ _("Failed to create agreement") }}');
                 }
+                throw new Error('{{ _("Failed to create agreement. Please try again.") }}');
             }
             
             // Handle redirect
             const responseUrl = response.url;
             if (responseUrl !== window.location.href) {
-                console.log('Redirecting to:', responseUrl);
                 window.location.href = responseUrl;
                 return;
             }
             
         } catch (error) {
             console.error('Form submission error:', error);
-            showError(error.message || '{{ _("An unexpected error occurred") }}');
+            const errorMessage = document.getElementById('errorMessage');
+            if (errorMessage) {
+                errorMessage.textContent = error.message;
+                errorModal.show();
+            } else {
+                showAlert(error.message, 'danger');
+            }
         } finally {
             setSubmitButtonState(false);
         }
     });
-
-    // Initialize template loader events
-    if (elements.loadTemplateBtn && elements.templateSelect) {
-        elements.loadTemplateBtn.addEventListener('click', async () => {
-            const spinner = elements.loadTemplateBtn.querySelector('.spinner-border');
-            const selectedTemplate = elements.templateSelect.value;
-            
-            if (!selectedTemplate) {
-                showAlert('{{ _("Please select a template first") }}', 'warning');
-                return;
-            }
-
-            try {
-                spinner.classList.remove('d-none');
-                elements.loadTemplateBtn.disabled = true;
-                await templateLoader.loadSelectedTemplate();
-            } catch (error) {
-                console.error('Error loading template:', error);
-                showAlert('{{ _("Error loading template") }}', 'danger');
-            } finally {
-                spinner.classList.add('d-none');
-                elements.loadTemplateBtn.disabled = false;
-            }
-        });
-    }
 });
 </script>
 
 <style>
-.highlight-amounts {
-    background-color: var(--bs-warning-bg-subtle);
-    padding: 0 2px;
-    border-radius: 2px;
+.required::after {
+    content: "*";
+    color: var(--bs-danger);
+    margin-left: 4px;
 }
 
-.highlight-dates {
-    background-color: var(--bs-info-bg-subtle);
-    padding: 0 2px;
-    border-radius: 2px;
+#formAlerts {
+    z-index: 1020;
 }
 
-.highlight-names {
-    background-color: var(--bs-success-bg-subtle);
-    padding: 0 2px;
-    border-radius: 2px;
+.form-control:focus {
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-bg-subtle);
 }
 
-.highlight-legal_terms {
-    background-color: var(--bs-primary-bg-subtle);
-    padding: 0 2px;
-    border-radius: 2px;
-}
-
-.highlight-obligations {
-    background-color: var(--bs-danger-bg-subtle);
-    padding: 0 2px;
-    border-radius: 2px;
-}
-
-.highlight-conditions {
-    background-color: var(--bs-secondary-bg-subtle);
-    padding: 0 2px;
-    border-radius: 2px;
-}
-
-/* Form validation styles */
 .was-validated .form-control:invalid {
     border-color: var(--bs-danger);
 }
 
 .was-validated .form-control:valid {
     border-color: var(--bs-success);
-}
-
-#previewContent {
-    min-height: 200px;
-}
-
-#formAlerts {
-    position: sticky;
-    top: 1rem;
-    z-index: 1020;
-}
-
-.accordion-button:not(.collapsed) {
-    background-color: var(--bs-primary-bg-subtle);
-    color: var(--bs-primary);
 }
 </style>
 {% endblock %}
