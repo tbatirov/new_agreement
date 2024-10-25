@@ -2,7 +2,7 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify, g, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
-from flask_babel import Babel, gettext as _
+from flask_babel import Babel, gettext as _, refresh
 import pdfkit
 from datetime import datetime
 from templates import AGREEMENT_TEMPLATES
@@ -21,6 +21,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_pre_ping": True,
 }
 app.config['BABEL_DEFAULT_LOCALE'] = 'en'
+app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
 app.config['LANGUAGES'] = {
     'en': 'English',
     'es': 'Español',
@@ -29,13 +30,26 @@ app.config['LANGUAGES'] = {
     'zh': '中文'
 }
 
+class Agreement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    signature1 = db.Column(db.Text)
+    signature2 = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    signed_at = db.Column(db.DateTime)
+
 def get_locale():
     # First try to get language from session
     if 'lang_code' in session:
-        return session['lang_code']
+        return session.get('lang_code')
+    
     # Then try to get it from the request header
     if not g.get('lang_code', None):
-        g.lang_code = request.accept_languages.best_match(app.config['LANGUAGES'].keys())
+        # Get browser's preferred language
+        preferred = request.accept_languages.best_match(app.config['LANGUAGES'].keys())
+        g.lang_code = preferred or app.config['BABEL_DEFAULT_LOCALE']
+        session['lang_code'] = g.lang_code
+    
     return g.lang_code
 
 babel = Babel(app, locale_selector=get_locale)
@@ -43,27 +57,35 @@ db.init_app(app)
 
 @app.route('/language/<lang_code>')
 def set_language(lang_code):
-    if lang_code in app.config['LANGUAGES']:
-        session['lang_code'] = lang_code
-        g.lang_code = lang_code
-        flash(_('Language changed to %(language)s', language=app.config['LANGUAGES'][lang_code]), 'success')
+    # Validate language code
+    if lang_code not in app.config['LANGUAGES']:
+        flash(_('Invalid language selected'), 'error')
         return redirect(request.referrer or url_for('index'))
-    flash(_('Invalid language selected'), 'error')
-    return redirect(url_for('index'))
+    
+    # Store language preference
+    session['lang_code'] = lang_code
+    g.lang_code = lang_code
+    
+    # Refresh translations
+    refresh()
+    
+    # Show success message
+    flash(_('Language changed to %(language)s', language=app.config['LANGUAGES'][lang_code]), 'success')
+    
+    # Redirect back to previous page or home
+    return redirect(request.referrer or url_for('index'))
 
 @app.before_request
 def before_request():
-    if 'lang_code' in session:
-        g.lang_code = session['lang_code']
-    else:
-        g.lang_code = request.accept_languages.best_match(app.config['LANGUAGES'].keys())
+    g.lang_code = get_locale()
+    g.languages = app.config['LANGUAGES']
 
 with app.app_context():
     db.create_all()
 
 @app.route('/')
 def index():
-    return render_template('index.html', languages=app.config['LANGUAGES'])
+    return render_template('index.html')
 
 @app.route('/templates')
 def get_templates():
@@ -79,24 +101,24 @@ def get_template_content(template_id):
 
 @app.route('/analyze-text', methods=['POST'])
 def analyze_text():
-    text = request.json.get('content', '')
-    if not text:
+    text = request.get_json()
+    if not text or 'content' not in text:
         return jsonify({"error": _("No content provided")}), 400
         
-    analysis = analyze_and_format_text(text)
+    analysis = analyze_and_format_text(text['content'])
     if analysis:
-        highlights = highlight_key_elements(text)
+        highlights = highlight_key_elements(text['content'])
         analysis['highlights'] = highlights
         return jsonify(analysis)
     return jsonify({"error": _("Could not analyze text")}), 500
 
 @app.route('/suggest-template', methods=['POST'])
 def suggest_template():
-    user_input = request.json.get('content', '')
-    if not user_input:
+    data = request.get_json()
+    if not data or 'content' not in data:
         return jsonify({"error": _("No content provided")}), 400
         
-    suggestion = get_template_suggestions(user_input)
+    suggestion = get_template_suggestions(data['content'])
     if suggestion:
         return jsonify(suggestion)
     return jsonify({"error": _("Could not generate suggestion")}), 500
@@ -109,15 +131,12 @@ def create_agreement():
             flash(_('Agreement content is required'), 'error')
             return redirect(url_for('create_agreement'))
             
-        agreement = Agreement(
-            content=content,
-            created_at=datetime.utcnow()
-        )
+        agreement = Agreement(content=content)
         db.session.add(agreement)
         db.session.commit()
         flash(_('Agreement created successfully'), 'success')
         return redirect(url_for('sign_agreement', id=agreement.id))
-    return render_template('create_agreement.html', languages=app.config['LANGUAGES'])
+    return render_template('create_agreement.html')
 
 @app.route('/sign/<int:id>', methods=['GET', 'POST'])
 def sign_agreement(id):
@@ -135,17 +154,17 @@ def sign_agreement(id):
         db.session.commit()
         flash(_('Agreement signed successfully'), 'success')
         return redirect(url_for('view_agreement', id=id))
-    return render_template('sign_agreement.html', agreement=agreement, languages=app.config['LANGUAGES'])
+    return render_template('sign_agreement.html', agreement=agreement)
 
 @app.route('/view/<int:id>')
 def view_agreement(id):
     agreement = Agreement.query.get_or_404(id)
-    return render_template('view_agreement.html', agreement=agreement, languages=app.config['LANGUAGES'])
+    return render_template('view_agreement.html', agreement=agreement)
 
 @app.route('/download/<int:id>')
 def download_agreement(id):
     agreement = Agreement.query.get_or_404(id)
-    html = render_template('view_agreement.html', agreement=agreement, languages=app.config['LANGUAGES'])
+    html = render_template('view_agreement.html', agreement=agreement)
     pdf = pdfkit.from_string(html, False)
     return send_file(
         io.BytesIO(pdf),
