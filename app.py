@@ -9,6 +9,7 @@ from datetime import datetime
 from templates import AGREEMENT_TEMPLATES
 from services.ai_service import get_template_suggestions, analyze_and_format_text, highlight_key_elements
 from services.verification_service import DocumentVerificationService
+from services.qr_service import QRCodeService
 import io
 import json
 from sqlalchemy.exc import SQLAlchemyError
@@ -219,20 +220,33 @@ def create_agreement():
 
 @app.route('/verify/<verification_code>')
 def verify_agreement_by_code(verification_code):
+    """Verify an agreement using its verification code."""
     try:
         agreement = Agreement.query.filter_by(verification_code=verification_code).first_or_404()
         verification_data = json.loads(agreement.verification_data)
         
-        is_valid, message = DocumentVerificationService.verify_agreement(agreement, verification_data)
+        # Get detailed verification results
+        is_valid, verification_results = DocumentVerificationService.verify_agreement(
+            agreement, 
+            verification_data
+        )
+        
+        # Generate QR code for sharing
+        qr_code = QRCodeService.generate_verification_qr(
+            verification_code,
+            agreement.id
+        )
+        
+        # Update last verified timestamp
         agreement.last_verified_at = datetime.utcnow()
         db.session.commit()
         
         return render_template(
             'verify_agreement.html',
             agreement=agreement,
-            is_valid=is_valid,
-            message=message,
-            verification_data=verification_data
+            verification_results=verification_results,
+            verification_data=verification_data,
+            qr_code=qr_code
         )
     except Exception as e:
         logger.error(f"Error verifying agreement: {str(e)}")
@@ -280,12 +294,12 @@ def view_agreement(id):
     try:
         agreement = Agreement.query.get_or_404(id)
         verification_data = json.loads(agreement.verification_data)
-        is_valid, message = DocumentVerificationService.verify_agreement(agreement, verification_data)
+        is_valid, verification_results = DocumentVerificationService.verify_agreement(agreement, verification_data)
         return render_template(
             'view_agreement.html',
             agreement=agreement,
             is_valid=is_valid,
-            message=message,
+            verification_results=verification_results,
             verification_data=verification_data
         )
     except Exception as e:
@@ -309,3 +323,6 @@ def download_agreement(id):
         logger.error(f"Error downloading agreement: {str(e)}")
         flash(_('Error downloading agreement'), 'error')
         return redirect(url_for('view_agreement', id=id))
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

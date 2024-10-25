@@ -13,4 +13,7 @@ dependencies = [
     "pdfkit>=1.0.0",
     "flask-babel>=4.0.0",
     "sqlalchemy",
+    "qrcode>=8.0",
+    "pillow>=11.0.0",
+    "pyzbar>=0.1.9",
 ]

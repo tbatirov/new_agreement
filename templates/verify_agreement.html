@@ -3,65 +3,135 @@
 {% block content %}
 <div class="row">
     <div class="col-md-8 offset-md-2">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>{{ _('Document Verification Results') }}</h2>
-            {% if is_valid %}
-            <span class="badge bg-success fs-5">{{ _('Valid') }}</span>
-            {% else %}
-            <span class="badge bg-danger fs-5">{{ _('Invalid') }}</span>
-            {% endif %}
+        <!-- Verification Progress -->
+        <div class="verification-progress mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>{{ _('Document Verification') }}</h2>
+                <div class="verification-status">
+                    {% if verification_results.is_valid %}
+                    <span class="badge bg-success fs-5">
+                        <i class="bi bi-shield-check me-1"></i>{{ _('Valid') }}
+                    </span>
+                    {% else %}
+                    <span class="badge bg-danger fs-5">
+                        <i class="bi bi-shield-x me-1"></i>{{ _('Invalid') }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Verification Steps Progress -->
+            <div class="verification-steps">
+                <!-- Content Integrity -->
+                <div class="verification-step mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="step-label">{{ _('Content Integrity') }}</span>
+                        <span class="badge {% if verification_results.content_integrity.status %}bg-success{% else %}bg-danger{% endif %}">
+                            <i class="bi {% if verification_results.content_integrity.status %}bi-check-circle{% else %}bi-x-circle{% endif %} me-1"></i>
+                            {{ verification_results.content_integrity.message }}
+                        </span>
+                    </div>
+                    <div class="progress mt-2" style="height: 5px;">
+                        <div class="progress-bar {% if verification_results.content_integrity.status %}bg-success{% else %}bg-danger{% endif %}" 
+                             role="progressbar" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <!-- Timestamp Verification -->
+                <div class="verification-step mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="step-label">{{ _('Timestamp') }}</span>
+                        <span class="badge {% if verification_results.timestamp.status %}bg-success{% else %}bg-danger{% endif %}">
+                            <i class="bi {% if verification_results.timestamp.status %}bi-check-circle{% else %}bi-x-circle{% endif %} me-1"></i>
+                            {{ verification_results.timestamp.message }}
+                        </span>
+                    </div>
+                    <div class="progress mt-2" style="height: 5px;">
+                        <div class="progress-bar {% if verification_results.timestamp.status %}bg-success{% else %}bg-danger{% endif %}" 
+                             role="progressbar" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <!-- Signature Verification -->
+                <div class="verification-step mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="step-label">{{ _('Signatures') }}</span>
+                        <span class="badge {% if verification_results.signatures.status == true %}bg-success{% elif verification_results.signatures.status == false %}bg-danger{% else %}bg-secondary{% endif %}">
+                            <i class="bi {% if verification_results.signatures.status == true %}bi-check-circle{% elif verification_results.signatures.status == false %}bi-x-circle{% else %}bi-dash-circle{% endif %} me-1"></i>
+                            {{ verification_results.signatures.message }}
+                        </span>
+                    </div>
+                    <div class="progress mt-2" style="height: 5px;">
+                        <div class="progress-bar {% if verification_results.signatures.status == true %}bg-success{% elif verification_results.signatures.status == false %}bg-danger{% else %}bg-secondary{% endif %}" 
+                             role="progressbar" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="alert alert-{{ 'success' if is_valid else 'danger' }}">
-            {{ message }}
-        </div>
-
+        <!-- Verification Details Card -->
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="card-title mb-0">{{ _('Verification Details') }}</h5>
             </div>
             <div class="card-body">
-                <dl class="row">
-                    <dt class="col-sm-4">{{ _('Agreement ID') }}</dt>
-                    <dd class="col-sm-8">{{ agreement.id }}</dd>
+                <div class="row">
+                    <div class="col-md-8">
+                        <dl class="row">
+                            <dt class="col-sm-4">{{ _('Agreement ID') }}</dt>
+                            <dd class="col-sm-8">{{ agreement.id }}</dd>
 
-                    <dt class="col-sm-4">{{ _('Verification Code') }}</dt>
-                    <dd class="col-sm-8">
-                        <code>{{ agreement.verification_code }}</code>
-                    </dd>
+                            <dt class="col-sm-4">{{ _('Verification Code') }}</dt>
+                            <dd class="col-sm-8">
+                                <code class="user-select-all">{{ agreement.verification_code }}</code>
+                            </dd>
 
-                    <dt class="col-sm-4">{{ _('Created At') }}</dt>
-                    <dd class="col-sm-8">{{ agreement.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</dd>
+                            <dt class="col-sm-4">{{ _('Created At') }}</dt>
+                            <dd class="col-sm-8">{{ agreement.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</dd>
 
-                    <dt class="col-sm-4">{{ _('Last Verified') }}</dt>
-                    <dd class="col-sm-8">
-                        {% if agreement.last_verified_at %}
-                            {{ agreement.last_verified_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
-                        {% else %}
-                            {{ _('Not verified before') }}
-                        {% endif %}
-                    </dd>
+                            <dt class="col-sm-4">{{ _('Last Verified') }}</dt>
+                            <dd class="col-sm-8">
+                                {% if agreement.last_verified_at %}
+                                    {{ agreement.last_verified_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+                                {% else %}
+                                    {{ _('Not verified before') }}
+                                {% endif %}
+                            </dd>
 
-                    <dt class="col-sm-4">{{ _('Document Hash') }}</dt>
-                    <dd class="col-sm-8">
-                        <code class="user-select-all">{{ verification_data.content_hash }}</code>
-                    </dd>
+                            <dt class="col-sm-4">{{ _('Document Hash') }}</dt>
+                            <dd class="col-sm-8">
+                                <code class="user-select-all">{{ verification_data.content_hash }}</code>
+                            </dd>
 
-                    <dt class="col-sm-4">{{ _('Status') }}</dt>
-                    <dd class="col-sm-8">
-                        <span class="badge bg-{{ 'success' if verification_data.status == 'signed' else 'info' }}">
-                            {{ verification_data.status|title }}
-                        </span>
-                    </dd>
+                            <dt class="col-sm-4">{{ _('Status') }}</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-{{ 'success' if verification_data.status == 'signed' else 'info' }}">
+                                    {{ verification_data.status|title }}
+                                </span>
+                            </dd>
 
-                    {% if verification_data.status == 'signed' %}
-                    <dt class="col-sm-4">{{ _('Signed At') }}</dt>
-                    <dd class="col-sm-8">{{ verification_data.signed_at }}</dd>
-                    {% endif %}
-                </dl>
+                            {% if verification_data.status == 'signed' %}
+                            <dt class="col-sm-4">{{ _('Signed At') }}</dt>
+                            <dd class="col-sm-8">{{ verification_data.signed_at }}</dd>
+                            {% endif %}
+                        </dl>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="qr-code-container mb-3">
+                                <img src="{{ qr_code }}" alt="Verification QR Code" class="img-fluid">
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" 
+                                    onclick="navigator.clipboard.writeText('{{ agreement.verification_code }}')">
+                                <i class="bi bi-clipboard"></i> {{ _('Copy Verification Code') }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- Document Content -->
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="card-title mb-0">{{ _('Document Content') }}</h5>
@@ -71,6 +141,7 @@
             </div>
         </div>
 
+        <!-- Signatures Section -->
         {% if agreement.signed_at %}
         <div class="card mb-4">
             <div class="card-header">
@@ -91,14 +162,129 @@
         </div>
         {% endif %}
 
-        <div class="d-flex gap-2">
+        <!-- Action Buttons -->
+        <div class="d-flex gap-2 mb-4">
             <a href="{{ url_for('view_agreement', id=agreement.id) }}" class="btn btn-primary">
-                {{ _('View Full Agreement') }}
+                <i class="bi bi-file-text"></i> {{ _('View Full Agreement') }}
             </a>
             <a href="{{ url_for('download_agreement', id=agreement.id) }}" class="btn btn-secondary">
-                {{ _('Download PDF') }}
+                <i class="bi bi-download"></i> {{ _('Download PDF') }}
             </a>
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#qrScannerModal">
+                <i class="bi bi-qr-code-scan"></i> {{ _('Scan QR Code') }}
+            </button>
         </div>
     </div>
 </div>
+
+<!-- QR Scanner Modal -->
+<div class="modal fade" id="qrScannerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ _('Scan QR Code') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <video id="qrScanner" class="img-fluid"></video>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-primary" id="startScanner">
+                        <i class="bi bi-camera"></i> {{ _('Start Scanner') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let selectedDeviceId;
+    const codeReader = new ZXing.BrowserQRCodeReader();
+    
+    // QR Scanner functionality
+    document.getElementById('startScanner').addEventListener('click', async () => {
+        try {
+            const videoElement = document.getElementById('qrScanner');
+            const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+            
+            // Prefer environment-facing camera if available
+            selectedDeviceId = devices.find(device => device.label.toLowerCase().includes('back'))?.deviceId 
+                             || devices[0].deviceId;
+            
+            const result = await codeReader.decodeFromVideoDevice(
+                selectedDeviceId,
+                'qrScanner',
+                (result, err) => {
+                    if (result) {
+                        // Extract verification code from result
+                        const code = result.text.split('/').pop();
+                        window.location.href = `/verify/${code}`;
+                    }
+                }
+            );
+        } catch (err) {
+            console.error('Error accessing camera:', err);
+            alert('{{ _('Error accessing camera. Please check permissions.') }}');
+        }
+    });
+    
+    // Clean up when modal is closed
+    document.getElementById('qrScannerModal').addEventListener('hidden.bs.modal', () => {
+        codeReader.reset();
+    });
+});
+</script>
+
+<style>
+.verification-step {
+    transition: all 0.3s ease;
+}
+
+.verification-step:hover {
+    background-color: var(--bs-dark-bg-subtle);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.qr-code-container {
+    background: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+#qrScanner {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    border-radius: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .verification-step {
+        font-size: 0.9rem;
+    }
+    
+    .verification-status .badge {
+        font-size: 1rem !important;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    dl.row {
+        font-size: 0.9rem;
+    }
+    
+    .signature-image {
+        max-height: 100px;
+    }
+}
+</style>
 {% endblock %}
