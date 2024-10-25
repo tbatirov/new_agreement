@@ -93,6 +93,72 @@ with app.app_context():
 def index():
     return render_template('index.html')
 
+@app.route('/templates')
+def get_templates():
+    """Get all available templates."""
+    try:
+        templates = [{"id": key, "name": _(template["name"])} for key, template in AGREEMENT_TEMPLATES.items()]
+        logger.info(f"Successfully retrieved {len(templates)} templates")
+        return jsonify(templates)
+    except Exception as e:
+        logger.error(f"Error retrieving templates: {str(e)}")
+        return jsonify({"error": _("Could not retrieve templates")}), 500
+
+@app.route('/templates/<template_id>')
+def get_template_content(template_id):
+    """Get content for a specific template."""
+    try:
+        template = AGREEMENT_TEMPLATES.get(template_id)
+        if not template:
+            logger.warning(f"Template not found: {template_id}")
+            return jsonify({"error": _("Template not found")}), 404
+            
+        logger.info(f"Successfully retrieved template: {template_id}")
+        return jsonify({"content": _(template["content"])})
+    except Exception as e:
+        logger.error(f"Error retrieving template content: {str(e)}")
+        return jsonify({"error": _("Could not retrieve template content")}), 500
+
+@app.route('/analyze-text', methods=['POST'])
+def analyze_text():
+    """Analyze agreement text."""
+    try:
+        text = request.get_json()
+        if not text or 'content' not in text:
+            return jsonify({"error": _("No content provided")}), 400
+            
+        analysis = analyze_and_format_text(text['content'])
+        if analysis:
+            highlights = highlight_key_elements(text['content'])
+            analysis['highlights'] = highlights
+            logger.info("Successfully analyzed text")
+            return jsonify(analysis)
+            
+        logger.error("Text analysis returned no results")
+        return jsonify({"error": _("Could not analyze text")}), 500
+    except Exception as e:
+        logger.error(f"Error analyzing text: {str(e)}")
+        return jsonify({"error": _("Error analyzing text")}), 500
+
+@app.route('/suggest-template', methods=['POST'])
+def suggest_template():
+    """Get template suggestions based on content."""
+    try:
+        data = request.get_json()
+        if not data or 'content' not in data:
+            return jsonify({"error": _("No content provided")}), 400
+            
+        suggestion = get_template_suggestions(data['content'])
+        if suggestion:
+            logger.info("Successfully generated template suggestions")
+            return jsonify(suggestion)
+            
+        logger.error("No template suggestions generated")
+        return jsonify({"error": _("Could not generate suggestion")}), 500
+    except Exception as e:
+        logger.error(f"Error generating template suggestions: {str(e)}")
+        return jsonify({"error": _("Error generating suggestions")}), 500
+
 @app.route('/create', methods=['GET', 'POST'])
 def create_agreement():
     if request.method == 'POST':
