@@ -6,7 +6,7 @@
         <h2>{{ _('Create Agreement') }}</h2>
         
         <!-- Form status alerts -->
-        <div id="formAlerts" class="sticky-top pt-2"></div>
+        <div id="formAlerts" class="sticky-top pt-2" role="alert"></div>
         
         <!-- Optional Voice Input -->
         <div class="accordion mb-3" id="voiceInstructionsAccordion">
@@ -54,16 +54,19 @@
                         <i class="bi bi-file-earmark-text"></i> {{ _('Load Template') }}
                     </button>
                 </div>
-                <div id="templateFeedback" class="alert d-none"></div>
+                <div id="templateFeedback" class="alert d-none" role="alert"></div>
             </div>
 
             <!-- Agreement Content -->
             <div class="mb-3">
                 <label class="form-label required">{{ _('Agreement Content') }}</label>
                 <textarea class="form-control" name="content" id="content" rows="15" required 
-                          minlength="10" data-error="{{ _('Please enter at least 10 characters') }}"></textarea>
-                <div class="invalid-feedback">{{ _('Agreement content is required (minimum 10 characters)') }}</div>
-                <div class="valid-feedback">{{ _('Content looks good!') }}</div>
+                          minlength="10" data-error="{{ _('Please enter at least 10 characters') }}"
+                          aria-describedby="contentFeedback"></textarea>
+                <div id="contentFeedback">
+                    <div class="invalid-feedback">{{ _('Agreement content is required (minimum 10 characters)') }}</div>
+                    <div class="valid-feedback">{{ _('Content looks good!') }}</div>
+                </div>
             </div>
 
             <!-- Submit Button -->
@@ -102,18 +105,27 @@
 </div>
 
 <!-- Error Modal -->
-<div class="modal fade" id="errorModal" tabindex="-1">
+<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title text-danger">{{ _('Error') }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title text-danger" id="errorModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ _('Error') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p id="errorMessage"></p>
+                <div id="errorDetails" class="alert alert-danger d-none mt-3">
+                    <small class="d-block"><strong>{{ _('Technical Details:') }}</strong></small>
+                    <small id="errorDetailsText"></small>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close') }}</button>
+                <button type="button" class="btn btn-primary" id="errorRetryButton">
+                    <i class="bi bi-arrow-clockwise"></i> {{ _('Retry') }}
+                </button>
             </div>
         </div>
     </div>
@@ -126,53 +138,90 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize form elements
-    const form = document.getElementById('agreementForm');
-    const submitButton = document.getElementById('submitButton');
-    const formAlerts = document.getElementById('formAlerts');
-    const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+    const elements = {
+        form: document.getElementById('agreementForm'),
+        submitButton: document.getElementById('submitButton'),
+        formAlerts: document.getElementById('formAlerts'),
+        errorModal: new bootstrap.Modal(document.getElementById('errorModal')),
+        errorMessage: document.getElementById('errorMessage'),
+        errorDetails: document.getElementById('errorDetails'),
+        errorDetailsText: document.getElementById('errorDetailsText'),
+        errorRetryButton: document.getElementById('errorRetryButton')
+    };
     
-    // Initialize template loader
-    const templateLoader = new TemplateLoader();
+    let isSubmitting = false;
+    let templateLoader = null;
     
     function showAlert(message, type = 'info', timeout = 5000) {
         const alert = document.createElement('div');
         alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.setAttribute('role', 'alert');
+        
+        const icon = {
+            success: 'bi-check-circle-fill',
+            danger: 'bi-exclamation-triangle-fill',
+            warning: 'bi-exclamation-circle-fill',
+            info: 'bi-info-circle-fill'
+        }[type] || 'bi-info-circle-fill';
+        
         alert.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="d-flex align-items-center">
+                <i class="bi ${icon} me-2"></i>
+                <div>${message}</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         `;
-        formAlerts.appendChild(alert);
+        
+        elements.formAlerts.appendChild(alert);
         
         if (timeout) {
             setTimeout(() => alert.remove(), timeout);
         }
     }
     
+    function showError(message, error = null) {
+        console.error('Form error:', message, error);
+        
+        // Update error modal
+        elements.errorMessage.textContent = message;
+        
+        if (error?.stack) {
+            elements.errorDetailsText.textContent = error.stack;
+            elements.errorDetails.classList.remove('d-none');
+        } else {
+            elements.errorDetails.classList.add('d-none');
+        }
+        
+        elements.errorModal.show();
+    }
+    
     function setSubmitButtonState(isLoading) {
-        submitButton.disabled = isLoading;
-        submitButton.querySelector('.spinner-border').classList.toggle('d-none', !isLoading);
-        submitButton.querySelector('.button-text').textContent = 
+        elements.submitButton.disabled = isLoading;
+        elements.submitButton.querySelector('.spinner-border').classList.toggle('d-none', !isLoading);
+        elements.submitButton.querySelector('.button-text').textContent = 
             isLoading ? '{{ _("Creating...") }}' : '{{ _("Create Agreement") }}';
     }
     
-    // Form validation and submission
-    form.addEventListener('submit', async (e) => {
+    async function handleFormSubmission(e) {
         e.preventDefault();
         
+        if (isSubmitting) return;
+        
         // Reset validation state
-        form.classList.remove('was-validated');
+        elements.form.classList.remove('was-validated');
         
         // Validate form
-        if (!form.checkValidity()) {
-            form.classList.add('was-validated');
+        if (!elements.form.checkValidity()) {
+            elements.form.classList.add('was-validated');
             showAlert('{{ _("Please fix the validation errors") }}', 'warning');
             return;
         }
         
         try {
+            isSubmitting = true;
             setSubmitButtonState(true);
             
-            const formData = new FormData(form);
+            const formData = new FormData(elements.form);
             const response = await fetch('{{ url_for("create_agreement") }}', {
                 method: 'POST',
                 body: formData,
@@ -184,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!response.ok) {
                 const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
+                if (contentType?.includes('application/json')) {
                     const data = await response.json();
                     throw new Error(data.error || '{{ _("Failed to create agreement") }}');
                 }
@@ -200,17 +249,37 @@ document.addEventListener('DOMContentLoaded', () => {
             
         } catch (error) {
             console.error('Form submission error:', error);
-            const errorMessage = document.getElementById('errorMessage');
-            if (errorMessage) {
-                errorMessage.textContent = error.message;
-                errorModal.show();
-            } else {
-                showAlert(error.message, 'danger');
-            }
+            showError('{{ _("An error occurred while creating the agreement") }}', error);
         } finally {
+            isSubmitting = false;
             setSubmitButtonState(false);
         }
+    }
+    
+    // Initialize form submission
+    elements.form.addEventListener('submit', handleFormSubmission);
+    
+    // Initialize retry button
+    elements.errorRetryButton.addEventListener('click', async () => {
+        elements.errorModal.hide();
+        
+        if (templateLoader?.initializationError) {
+            await templateLoader.retryInitialization();
+        } else {
+            handleFormSubmission(new Event('submit'));
+        }
     });
+    
+    // Initialize template loader
+    try {
+        templateLoader = window.templateLoader;
+        if (!templateLoader) {
+            throw new Error('Template loader not initialized');
+        }
+    } catch (error) {
+        console.error('Error accessing template loader:', error);
+        showError('{{ _("Error initializing agreement creation form") }}', error);
+    }
 });
 </script>
 
@@ -235,6 +304,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
 .was-validated .form-control:valid {
     border-color: var(--bs-success);
+}
+
+.alert {
+    margin-bottom: 1rem;
+}
+
+.alert:last-child {
+    margin-bottom: 0;
+}
+
+.modal-header .bi {
+    font-size: 1.2em;
+}
+
+#errorDetails {
+    background-color: var(--bs-danger-bg-subtle);
+    border: none;
+}
+
+#errorDetails small {
+    color: var(--bs-danger);
 }
 </style>
 {% endblock %}
