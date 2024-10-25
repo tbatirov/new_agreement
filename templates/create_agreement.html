@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-md-8 offset-md-2">
+    <div class="col-md-6">
         <h2>Create Agreement</h2>
         <div class="alert alert-info mb-3">
             <h5>Voice Input Instructions:</h5>
@@ -14,7 +14,7 @@
                 <li>Use the Stop button when you're done speaking</li>
             </ul>
         </div>
-        <form method="POST">
+        <form method="POST" id="agreementForm">
             <div class="mb-3">
                 <label class="form-label">Select Template</label>
                 <div class="d-flex gap-2 mb-2">
@@ -43,10 +43,57 @@
                         <i class="bi bi-stop-fill"></i> Stop Voice Input
                     </button>
                 </div>
-                <textarea class="form-control" name="content" id="content" rows="10" required></textarea>
+                <textarea class="form-control" name="content" id="content" rows="15" required></textarea>
             </div>
             <button type="submit" class="btn btn-primary">Create Agreement</button>
         </form>
+    </div>
+    <div class="col-md-6">
+        <div class="sticky-top pt-3">
+            <h3>Real-time Preview</h3>
+            <div class="card mb-3">
+                <div class="card-body" id="previewContent">
+                    <p class="text-muted">Start typing to see the preview...</p>
+                </div>
+            </div>
+            <div id="analysisSection" class="d-none">
+                <div class="accordion" id="suggestionAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#keyTermsCollapse">
+                                Key Terms
+                            </button>
+                        </h2>
+                        <div id="keyTermsCollapse" class="accordion-collapse collapse show" data-bs-parent="#suggestionAccordion">
+                            <div class="accordion-body" id="keyTermsList">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#missingDetailsCollapse">
+                                Missing Details
+                            </button>
+                        </h2>
+                        <div id="missingDetailsCollapse" class="accordion-collapse collapse" data-bs-parent="#suggestionAccordion">
+                            <div class="accordion-body" id="missingDetailsList">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#suggestionsCollapse">
+                                Improvement Suggestions
+                            </button>
+                        </h2>
+                        <div id="suggestionsCollapse" class="accordion-collapse collapse" data-bs-parent="#suggestionAccordion">
+                            <div class="accordion-body" id="suggestionsList">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -61,9 +108,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionBox = document.getElementById('suggestionBox');
     const suggestionText = document.getElementById('suggestionText');
     const applySuggestionBtn = document.getElementById('applySuggestion');
+    const previewContent = document.getElementById('previewContent');
+    const analysisSection = document.getElementById('analysisSection');
+    const keyTermsList = document.getElementById('keyTermsList');
+    const missingDetailsList = document.getElementById('missingDetailsList');
+    const suggestionsList = document.getElementById('suggestionsList');
     
     let templates = {};
     let suggestionTimeout = null;
+    let analysisTimeout = null;
 
     // Fetch available templates
     fetch('/templates')
@@ -79,9 +132,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(error => console.error('Error loading templates:', error));
 
-    // Load template content when requested
-    loadTemplateBtn.addEventListener('click', () => loadSelectedTemplate());
-
     function loadSelectedTemplate() {
         const selectedTemplate = templateSelect.value;
         if (selectedTemplate) {
@@ -90,21 +140,98 @@ document.addEventListener('DOMContentLoaded', () => {
                 .then(data => {
                     if (data.content) {
                         contentArea.value = data.content;
+                        updatePreviewAndAnalysis();
                     }
                 })
                 .catch(error => console.error('Error loading template content:', error));
         }
     }
 
+    function updatePreviewAndAnalysis() {
+        const content = contentArea.value.trim();
+        
+        // Update preview immediately
+        previewContent.innerHTML = content ? content.replace(/\n/g, '<br>') : '<p class="text-muted">Start typing to see the preview...</p>';
+        
+        if (content.length > 20) {
+            if (analysisTimeout) {
+                clearTimeout(analysisTimeout);
+            }
+            
+            analysisTimeout = setTimeout(() => {
+                // Get AI analysis
+                fetch('/analyze-text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ content }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.formatted_text) {
+                        // Update preview with formatted text
+                        previewContent.innerHTML = data.formatted_text.replace(/\n/g, '<br>');
+                        
+                        // Show analysis section
+                        analysisSection.classList.remove('d-none');
+                        
+                        // Update key terms
+                        keyTermsList.innerHTML = data.key_terms.map(term => 
+                            `<div class="mb-2">
+                                <strong>${term.term}</strong>: ${term.definition}
+                            </div>`
+                        ).join('');
+                        
+                        // Update missing details
+                        missingDetailsList.innerHTML = data.missing_details.map(detail =>
+                            `<div class="alert alert-warning mb-2">
+                                <i class="bi bi-exclamation-triangle"></i> ${detail}
+                            </div>`
+                        ).join('');
+                        
+                        // Update suggestions
+                        suggestionsList.innerHTML = data.suggestions.map(suggestion =>
+                            `<div class="alert alert-info mb-2">
+                                <i class="bi bi-lightbulb"></i> ${suggestion}
+                            </div>`
+                        ).join('');
+                        
+                        // Highlight key elements
+                        if (data.highlights) {
+                            // Add highlighting styles for amounts, dates, and names
+                            Object.entries(data.highlights).forEach(([type, elements]) => {
+                                elements.forEach(element => {
+                                    const regex = new RegExp(element.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                                    previewContent.innerHTML = previewContent.innerHTML.replace(
+                                        regex,
+                                        `<span class="highlight-${type}">${element}</span>`
+                                    );
+                                });
+                            });
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error analyzing text:', error);
+                });
+            }, 1000);
+        } else {
+            analysisSection.classList.add('d-none');
+        }
+    }
+
     // Get template suggestions based on user input
     contentArea.addEventListener('input', () => {
+        updatePreviewAndAnalysis();
+        
         if (suggestionTimeout) {
             clearTimeout(suggestionTimeout);
         }
         
         suggestionTimeout = setTimeout(() => {
             const content = contentArea.value.trim();
-            if (content.length > 20) { // Only suggest after meaningful input
+            if (content.length > 20) {
                 fetch('/suggest-template', {
                     method: 'POST',
                     headers: {
@@ -114,13 +241,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.template_id && data.confidence > 0.6) { // Show only high-confidence suggestions
+                    if (data.template_id && data.confidence > 0.6) {
                         suggestionText.innerHTML = `
                             <strong>${data.best_match}</strong><br>
                             <small class="text-muted">${data.explanation}</small>
+                            ${data.key_points ? `
+                                <ul class="mt-2 mb-0">
+                                    ${data.key_points.map(point => `<li>${point}</li>`).join('')}
+                                </ul>
+                            ` : ''}
                         `;
                         suggestionBox.classList.remove('d-none');
-                        // Pre-select the suggested template
                         templateSelect.value = data.template_id;
                     } else {
                         suggestionBox.classList.add('d-none');
@@ -131,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     suggestionBox.classList.add('d-none');
                 });
             }
-        }, 1000); // Wait for 1 second after user stops typing
+        }, 1000);
     });
 
     // Apply suggestion when clicked
@@ -139,6 +270,32 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSelectedTemplate();
         suggestionBox.classList.add('d-none');
     });
+    
+    // Load template when button is clicked
+    loadTemplateBtn.addEventListener('click', loadSelectedTemplate);
 });
 </script>
+<style>
+.highlight-amounts {
+    background-color: var(--bs-warning-bg-subtle);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.highlight-dates {
+    background-color: var(--bs-info-bg-subtle);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.highlight-names {
+    background-color: var(--bs-success-bg-subtle);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+#previewContent {
+    min-height: 200px;
+}
+</style>
 {% endblock %}

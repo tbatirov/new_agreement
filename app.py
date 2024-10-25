@@ -5,7 +5,7 @@ from sqlalchemy.orm import DeclarativeBase
 import pdfkit
 from datetime import datetime
 from templates import AGREEMENT_TEMPLATES
-from services.ai_service import get_template_suggestions
+from services.ai_service import get_template_suggestions, analyze_and_format_text, highlight_key_elements
 import io
 
 class Base(DeclarativeBase):
@@ -40,6 +40,20 @@ def get_template_content(template_id):
     if template:
         return jsonify({"content": template["content"]})
     return jsonify({"error": "Template not found"}), 404
+
+@app.route('/analyze-text', methods=['POST'])
+def analyze_text():
+    text = request.json.get('content', '')
+    if not text:
+        return jsonify({"error": "No content provided"}), 400
+        
+    analysis = analyze_and_format_text(text)
+    if analysis:
+        # Add key element highlighting
+        highlights = highlight_key_elements(text)
+        analysis['highlights'] = highlights
+        return jsonify(analysis)
+    return jsonify({"error": "Could not analyze text"}), 500
 
 @app.route('/suggest-template', methods=['POST'])
 def suggest_template():
