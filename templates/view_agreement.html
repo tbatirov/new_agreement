@@ -4,29 +4,61 @@
 <div class="row">
     <div class="col-md-8 offset-md-2">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Agreement Details</h2>
-            <a href="{{ url_for('download_agreement', id=agreement.id) }}" class="btn btn-primary">
-                Download PDF
-            </a>
+            <h2>{{ _('Agreement Details') }}</h2>
+            <div class="d-flex gap-2">
+                {% if is_valid is defined %}
+                    <span class="badge {% if is_valid %}bg-success{% else %}bg-danger{% endif %} d-flex align-items-center">
+                        <i class="bi {% if is_valid %}bi-shield-check{% else %}bi-shield-exclamation{% endif %} me-1"></i>
+                        {{ _('Valid Document') if is_valid else _('Invalid Document') }}
+                    </span>
+                {% endif %}
+                <a href="{{ url_for('download_agreement', id=agreement.id) }}" class="btn btn-primary">
+                    <i class="bi bi-download"></i> {{ _('Download PDF') }}
+                </a>
+            </div>
         </div>
+
+        {% if verification_data %}
+        <div class="alert alert-info mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="alert-heading">{{ _('Verification Code') }}</h5>
+                    <code class="user-select-all">{{ agreement.verification_code }}</code>
+                </div>
+                <a href="{{ url_for('verify_agreement_by_code', verification_code=agreement.verification_code) }}" 
+                   class="btn btn-outline-info">
+                    <i class="bi bi-shield-check"></i> {{ _('Verify Document') }}
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card mb-4">
             <div class="card-body">
                 {{ agreement.content|safe }}
             </div>
         </div>
+
         {% if agreement.signed_at %}
-        <div class="row">
-            <div class="col-md-6">
-                <h4>Party 1 Signature</h4>
-                <img src="{{ agreement.signature1 }}" alt="Signature 1" class="signature-image">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{{ _('Signatures') }}</h5>
             </div>
-            <div class="col-md-6">
-                <h4>Party 2 Signature</h4>
-                <img src="{{ agreement.signature2 }}" alt="Signature 2" class="signature-image">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>{{ _('Party 1 Signature') }}</h6>
+                        <img src="{{ agreement.signature1 }}" alt="Signature 1" class="signature-image">
+                    </div>
+                    <div class="col-md-6">
+                        <h6>{{ _('Party 2 Signature') }}</h6>
+                        <img src="{{ agreement.signature2 }}" alt="Signature 2" class="signature-image">
+                    </div>
+                </div>
+                <div class="text-muted mt-3">
+                    {{ _('Signed on') }}: {{ agreement.signed_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+                </div>
             </div>
-        </div>
-        <div class="text-muted mt-3">
-            Signed on: {{ agreement.signed_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
         </div>
         {% endif %}
     </div>

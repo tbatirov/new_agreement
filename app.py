@@ -7,7 +7,9 @@ import pdfkit
 from datetime import datetime
 from templates import AGREEMENT_TEMPLATES
 from services.ai_service import get_template_suggestions, analyze_and_format_text, highlight_key_elements
+from services.verification_service import DocumentVerificationService
 import io
+import json
 
 class Base(DeclarativeBase):
     pass
@@ -37,15 +39,15 @@ class Agreement(db.Model):
     signature2 = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     signed_at = db.Column(db.DateTime)
+    verification_data = db.Column(db.Text)  # JSON string containing verification info
+    verification_code = db.Column(db.String(12), unique=True)
+    last_verified_at = db.Column(db.DateTime)
 
 def get_locale():
-    # First try to get language from session
     if 'lang_code' in session:
         return session.get('lang_code')
     
-    # Then try to get it from the request header
     if not g.get('lang_code', None):
-        # Get browser's preferred language
         preferred = request.accept_languages.best_match(app.config['LANGUAGES'].keys())
         g.lang_code = preferred or app.config['BABEL_DEFAULT_LOCALE']
         session['lang_code'] = g.lang_code
@@ -57,22 +59,15 @@ db.init_app(app)
 
 @app.route('/language/<lang_code>')
 def set_language(lang_code):
-    # Validate language code
     if lang_code not in app.config['LANGUAGES']:
         flash(_('Invalid language selected'), 'error')
         return redirect(request.referrer or url_for('index'))
     
-    # Store language preference
     session['lang_code'] = lang_code
     g.lang_code = lang_code
-    
-    # Refresh translations
     refresh()
     
-    # Show success message
     flash(_('Language changed to %(language)s', language=app.config['LANGUAGES'][lang_code]), 'success')
-    
-    # Redirect back to previous page or home
     return redirect(request.referrer or url_for('index'))
 
 @app.before_request
@@ -132,11 +127,46 @@ def create_agreement():
             return redirect(url_for('create_agreement'))
             
         agreement = Agreement(content=content)
+        
+        # Create verification record
+        verification_data = DocumentVerificationService.create_verification_record(
+            agreement_id=None,  # Will be updated after commit
+            content=content
+        )
+        agreement.verification_data = json.dumps(verification_data)
+        
         db.session.add(agreement)
         db.session.commit()
+        
+        # Update verification record with actual agreement ID
+        verification_data['agreement_id'] = agreement.id
+        agreement.verification_code = DocumentVerificationService.generate_verification_code(
+            agreement.id, 
+            verification_data['content_hash']
+        )
+        agreement.verification_data = json.dumps(verification_data)
+        db.session.commit()
+        
         flash(_('Agreement created successfully'), 'success')
         return redirect(url_for('sign_agreement', id=agreement.id))
     return render_template('create_agreement.html')
+
+@app.route('/verify/<verification_code>')
+def verify_agreement_by_code(verification_code):
+    agreement = Agreement.query.filter_by(verification_code=verification_code).first_or_404()
+    verification_data = json.loads(agreement.verification_data)
+    
+    is_valid, message = DocumentVerificationService.verify_agreement(agreement, verification_data)
+    agreement.last_verified_at = datetime.utcnow()
+    db.session.commit()
+    
+    return render_template(
+        'verify_agreement.html',
+        agreement=agreement,
+        is_valid=is_valid,
+        message=message,
+        verification_data=verification_data
+    )
 
 @app.route('/sign/<int:id>', methods=['GET', 'POST'])
 def sign_agreement(id):
@@ -151,6 +181,13 @@ def sign_agreement(id):
         agreement.signature1 = signature1
         agreement.signature2 = signature2
         agreement.signed_at = datetime.utcnow()
+        
+        # Update verification data with signing info
+        verification_data = json.loads(agreement.verification_data)
+        verification_data['status'] = 'signed'
+        verification_data['signed_at'] = agreement.signed_at.isoformat()
+        agreement.verification_data = json.dumps(verification_data)
+        
         db.session.commit()
         flash(_('Agreement signed successfully'), 'success')
         return redirect(url_for('view_agreement', id=id))
@@ -159,7 +196,15 @@ def sign_agreement(id):
 @app.route('/view/<int:id>')
 def view_agreement(id):
     agreement = Agreement.query.get_or_404(id)
-    return render_template('view_agreement.html', agreement=agreement)
+    verification_data = json.loads(agreement.verification_data)
+    is_valid, message = DocumentVerificationService.verify_agreement(agreement, verification_data)
+    return render_template(
+        'view_agreement.html',
+        agreement=agreement,
+        is_valid=is_valid,
+        message=message,
+        verification_data=verification_data
+    )
 
 @app.route('/download/<int:id>')
 def download_agreement(id):
