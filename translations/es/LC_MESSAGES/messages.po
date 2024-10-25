@@ -1,0 +1,78 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"POT-Creation-Date: 2024-10-25 12:00\n"
+"PO-Revision-Date: 2024-10-25 12:00\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Legal Agreement Generator"
+msgstr "Generador de Acuerdos Legales"
+
+msgid "Create Agreement"
+msgstr "Crear Acuerdo"
+
+msgid "Template not found"
+msgstr "Plantilla no encontrada"
+
+msgid "No content provided"
+msgstr "No se proporcionó contenido"
+
+msgid "Could not analyze text"
+msgstr "No se pudo analizar el texto"
+
+msgid "Could not generate suggestion"
+msgstr "No se pudo generar la sugerencia"
+
+msgid "Non-Disclosure Agreement (NDA)"
+msgstr "Acuerdo de Confidencialidad (NDA)"
+
+msgid "Service Agreement"
+msgstr "Contrato de Servicios"
+
+msgid "Rental Agreement"
+msgstr "Contrato de Alquiler"
+
+msgid "Purchase Agreement"
+msgstr "Contrato de Compra"
+
+msgid "Start Voice Input"
+msgstr "Iniciar Entrada de Voz"
+
+msgid "Stop Voice Input"
+msgstr "Detener Entrada de Voz"
+
+msgid "Welcome to Legal Agreement Generator"
+msgstr "Bienvenido al Generador de Acuerdos Legales"
+
+msgid "Create and sign legal agreements quickly using voice or text input"
+msgstr "Crea y firma acuerdos legales rápidamente usando voz o texto"
+
+msgid "Choose a template..."
+msgstr "Elija una plantilla..."
+
+msgid "Load Template"
+msgstr "Cargar Plantilla"
+
+msgid "Agreement Content"
+msgstr "Contenido del Acuerdo"
+
+msgid "Real-time Analysis"
+msgstr "Análisis en Tiempo Real"
+
+msgid "Industry Context"
+msgstr "Contexto de la Industria"
+
+msgid "Key Terms"
+msgstr "Términos Clave"
+
+msgid "Risk Assessment"
+msgstr "Evaluación de Riesgos"
+
+msgid "Compliance & Jurisdiction"
+msgstr "Cumplimiento y Jurisdicción"
+
+msgid "Improvement Suggestions"
+msgstr "Sugerencias de Mejora"

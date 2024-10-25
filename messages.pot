@@ -1,0 +1,42 @@
+# Translations template for Legal Agreement Generator.
+# Copyright (C) 2024 Legal Agreement Generator
+# This file is distributed under the same license as the Legal Agreement Generator project.
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"POT-Creation-Date: 2024-10-25 12:00\n"
+"PO-Revision-Date: 2024-10-25 12:00\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Legal Agreement Generator"
+msgstr ""
+
+msgid "Create Agreement"
+msgstr ""
+
+msgid "Template not found"
+msgstr ""
+
+msgid "No content provided"
+msgstr ""
+
+msgid "Could not analyze text"
+msgstr ""
+
+msgid "Could not generate suggestion"
+msgstr ""
+
+msgid "Non-Disclosure Agreement (NDA)"
+msgstr ""
+
+msgid "Service Agreement"
+msgstr ""
+
+msgid "Rental Agreement"
+msgstr ""
+
+msgid "Purchase Agreement"
+msgstr ""

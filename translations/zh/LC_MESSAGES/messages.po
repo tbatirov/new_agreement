@@ -1,0 +1,78 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"POT-Creation-Date: 2024-10-25 12:00\n"
+"PO-Revision-Date: 2024-10-25 12:00\n"
+"Language: zh\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Legal Agreement Generator"
+msgstr "法律协议生成器"
+
+msgid "Create Agreement"
+msgstr "创建协议"
+
+msgid "Template not found"
+msgstr "未找到模板"
+
+msgid "No content provided"
+msgstr "未提供内容"
+
+msgid "Could not analyze text"
+msgstr "无法分析文本"
+
+msgid "Could not generate suggestion"
+msgstr "无法生成建议"
+
+msgid "Non-Disclosure Agreement (NDA)"
+msgstr "保密协议 (NDA)"
+
+msgid "Service Agreement"
+msgstr "服务协议"
+
+msgid "Rental Agreement"
+msgstr "租赁协议"
+
+msgid "Purchase Agreement"
+msgstr "购买协议"
+
+msgid "Start Voice Input"
+msgstr "开始语音输入"
+
+msgid "Stop Voice Input"
+msgstr "停止语音输入"
+
+msgid "Welcome to Legal Agreement Generator"
+msgstr "欢迎使用法律协议生成器"
+
+msgid "Create and sign legal agreements quickly using voice or text input"
+msgstr "使用语音或文本输入快速创建和签署法律协议"
+
+msgid "Choose a template..."
+msgstr "选择模板..."
+
+msgid "Load Template"
+msgstr "加载模板"
+
+msgid "Agreement Content"
+msgstr "协议内容"
+
+msgid "Real-time Analysis"
+msgstr "实时分析"
+
+msgid "Industry Context"
+msgstr "行业背景"
+
+msgid "Key Terms"
+msgstr "关键条款"
+
+msgid "Risk Assessment"
+msgstr "风险评估"
+
+msgid "Compliance & Jurisdiction"
+msgstr "合规性与管辖权"
+
+msgid "Improvement Suggestions"
+msgstr "改进建议"

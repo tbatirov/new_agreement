@@ -1,0 +1,78 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"POT-Creation-Date: 2024-10-25 12:00\n"
+"PO-Revision-Date: 2024-10-25 12:00\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Legal Agreement Generator"
+msgstr "Générateur de Contrats Juridiques"
+
+msgid "Create Agreement"
+msgstr "Créer un Contrat"
+
+msgid "Template not found"
+msgstr "Modèle non trouvé"
+
+msgid "No content provided"
+msgstr "Aucun contenu fourni"
+
+msgid "Could not analyze text"
+msgstr "Impossible d'analyser le texte"
+
+msgid "Could not generate suggestion"
+msgstr "Impossible de générer une suggestion"
+
+msgid "Non-Disclosure Agreement (NDA)"
+msgstr "Accord de Confidentialité (NDA)"
+
+msgid "Service Agreement"
+msgstr "Contrat de Service"
+
+msgid "Rental Agreement"
+msgstr "Contrat de Location"
+
+msgid "Purchase Agreement"
+msgstr "Contrat d'Achat"
+
+msgid "Start Voice Input"
+msgstr "Démarrer l'Entrée Vocale"
+
+msgid "Stop Voice Input"
+msgstr "Arrêter l'Entrée Vocale"
+
+msgid "Welcome to Legal Agreement Generator"
+msgstr "Bienvenue sur le Générateur de Contrats Juridiques"
+
+msgid "Create and sign legal agreements quickly using voice or text input"
+msgstr "Créez et signez rapidement des contrats juridiques en utilisant la voix ou le texte"
+
+msgid "Choose a template..."
+msgstr "Choisissez un modèle..."
+
+msgid "Load Template"
+msgstr "Charger le Modèle"
+
+msgid "Agreement Content"
+msgstr "Contenu du Contrat"
+
+msgid "Real-time Analysis"
+msgstr "Analyse en Temps Réel"
+
+msgid "Industry Context"
+msgstr "Contexte Industriel"
+
+msgid "Key Terms"
+msgstr "Termes Clés"
+
+msgid "Risk Assessment"
+msgstr "Évaluation des Risques"
+
+msgid "Compliance & Jurisdiction"
+msgstr "Conformité & Juridiction"
+
+msgid "Improvement Suggestions"
+msgstr "Suggestions d'Amélioration"

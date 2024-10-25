@@ -11,4 +11,6 @@ dependencies = [
     "openai>=1.52.2",
     "wkhtmltopdf>=0.2",
     "pdfkit>=1.0.0",
+    "flask-babel>=4.0.0",
+    "sqlalchemy",
 ]
