@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <h2>Sign Agreement</h2>
+        <div class="card mb-4">
+            <div class="card-body">
+                {{ agreement.content|safe }}
+            </div>
+        </div>
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label">Party 1 Signature</label>
+                <div id="signature1Pad" class="signature-pad"></div>
+                <input type="hidden" name="signature1" id="signature1Data">
+                <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="clearSignature('signature1Pad')">
+                    Clear Signature
+                </button>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Party 2 Signature</label>
+                <div id="signature2Pad" class="signature-pad"></div>
+                <input type="hidden" name="signature2" id="signature2Data">
+                <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="clearSignature('signature2Pad')">
+                    Clear Signature
+                </button>
+            </div>
+            <button type="submit" class="btn btn-primary">Sign Agreement</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/signature.js') }}"></script>
+{% endblock %}

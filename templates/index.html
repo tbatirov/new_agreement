@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center">
+    <h1 class="display-4">Welcome to Legal Agreement Generator</h1>
+    <p class="lead">Create and sign legal agreements quickly using voice or text input</p>
+    <div class="mt-4">
+        <a href="{{ url_for('create_agreement') }}" class="btn btn-primary btn-lg">Create New Agreement</a>
+    </div>
+</div>
+{% endblock %}

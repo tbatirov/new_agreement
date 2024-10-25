@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Agreement Details</h2>
+            <a href="{{ url_for('download_agreement', id=agreement.id) }}" class="btn btn-primary">
+                Download PDF
+            </a>
+        </div>
+        <div class="card mb-4">
+            <div class="card-body">
+                {{ agreement.content|safe }}
+            </div>
+        </div>
+        {% if agreement.signed_at %}
+        <div class="row">
+            <div class="col-md-6">
+                <h4>Party 1 Signature</h4>
+                <img src="{{ agreement.signature1 }}" alt="Signature 1" class="signature-image">
+            </div>
+            <div class="col-md-6">
+                <h4>Party 2 Signature</h4>
+                <img src="{{ agreement.signature2 }}" alt="Signature 2" class="signature-image">
+            </div>
+        </div>
+        <div class="text-muted mt-3">
+            Signed on: {{ agreement.signed_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
