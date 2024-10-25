@@ -1,28 +1,67 @@
 class TemplateLoader {
     constructor(maxRetries = 3, retryDelay = 1000) {
+        // Initialize with null values
         this.maxRetries = maxRetries;
         this.retryDelay = retryDelay;
         this.templates = {};
-        this.templateSelect = document.getElementById('templateSelect');
-        this.templateFeedback = document.getElementById('templateFeedback');
-        this.loadTemplateBtn = document.getElementById('loadTemplate');
-        this.contentArea = document.getElementById('content');
-        this.previewContent = document.getElementById('previewContent');
-        this.previewSpinner = document.getElementById('previewSpinner');
         
-        // Initialize event listeners
-        this.loadTemplateBtn.addEventListener('click', () => this.loadSelectedTemplate());
-        this.templateSelect.addEventListener('change', () => this.loadSelectedTemplate());
+        // Find required DOM elements
+        const elements = this.findRequiredElements();
+        if (!elements) {
+            console.error('Required DOM elements not found for TemplateLoader');
+            return;
+        }
+        
+        Object.assign(this, elements);
+        
+        // Initialize event listeners only if elements exist
+        this.initializeEventListeners();
         
         // Load templates on initialization
         this.initializeTemplates();
     }
+    
+    findRequiredElements() {
+        const elements = {
+            templateSelect: document.getElementById('templateSelect'),
+            templateFeedback: document.getElementById('templateFeedback'),
+            loadTemplateBtn: document.getElementById('loadTemplate'),
+            contentArea: document.getElementById('content'),
+            previewContent: document.getElementById('previewContent'),
+            previewSpinner: document.getElementById('previewSpinner')
+        };
+        
+        // Check if all required elements exist
+        const missingElements = Object.entries(elements)
+            .filter(([key, element]) => !element)
+            .map(([key]) => key);
+            
+        if (missingElements.length > 0) {
+            console.error('Missing required elements:', missingElements.join(', '));
+            return null;
+        }
+        
+        return elements;
+    }
+    
+    initializeEventListeners() {
+        if (this.loadTemplateBtn && this.templateSelect) {
+            this.loadTemplateBtn.addEventListener('click', () => this.loadSelectedTemplate());
+            this.templateSelect.addEventListener('change', () => this.loadSelectedTemplate());
+        }
+    }
 
     showFeedback(message, type) {
+        if (!this.templateFeedback) return;
+        
         this.templateFeedback.textContent = message;
         this.templateFeedback.className = `alert alert-${type}`;
         this.templateFeedback.classList.remove('d-none');
-        setTimeout(() => this.templateFeedback.classList.add('d-none'), 5000);
+        setTimeout(() => {
+            if (this.templateFeedback) {
+                this.templateFeedback.classList.add('d-none');
+            }
+        }, 5000);
     }
 
     async fetchWithRetry(url, options = {}, retries = 0) {
@@ -43,6 +82,8 @@ class TemplateLoader {
     }
 
     async initializeTemplates() {
+        if (!this.templateSelect) return;
+        
         try {
             this.showFeedback('Loading templates...', 'info');
             const templatesData = await this.fetchWithRetry('/templates');
@@ -73,6 +114,8 @@ class TemplateLoader {
     }
 
     updateTemplateSelect() {
+        if (!this.templateSelect) return;
+        
         // Clear existing options except the default
         while (this.templateSelect.options.length > 1) {
             this.templateSelect.remove(1);
@@ -88,12 +131,16 @@ class TemplateLoader {
     }
 
     async loadSelectedTemplate() {
+        if (!this.templateSelect || !this.contentArea || !this.previewContent) return;
+        
         const selectedTemplate = this.templateSelect.value;
         if (!selectedTemplate) return;
         
         try {
             this.showFeedback('Loading template...', 'info');
-            this.previewSpinner.classList.remove('d-none');
+            if (this.previewSpinner) {
+                this.previewSpinner.classList.remove('d-none');
+            }
             
             const data = await this.fetchWithRetry(`/templates/${selectedTemplate}`);
             if (!data.content) {
@@ -108,12 +155,11 @@ class TemplateLoader {
             console.error('Error loading template:', error);
             this.showFeedback('Error loading template content. Please try again.', 'danger');
         } finally {
-            this.previewSpinner.classList.add('d-none');
+            if (this.previewSpinner) {
+                this.previewSpinner.classList.add('d-none');
+            }
         }
     }
 }
 
-// Initialize template loader when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    window.templateLoader = new TemplateLoader();
-});
+// Don't initialize here - moved to create_agreement.html
