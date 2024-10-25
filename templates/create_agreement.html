@@ -4,15 +4,24 @@
 <div class="row">
     <div class="col-md-8 offset-md-2">
         <h2>Create Agreement</h2>
+        <div class="alert alert-info mb-3">
+            <h5>Voice Input Instructions:</h5>
+            <ul class="mb-0">
+                <li>Make sure you're using a modern browser (Chrome recommended)</li>
+                <li>Allow microphone access when prompted</li>
+                <li>Speak clearly and at a normal pace</li>
+                <li>Use the Stop button when you're done speaking</li>
+            </ul>
+        </div>
         <form method="POST">
             <div class="mb-3">
                 <label class="form-label">Agreement Content</label>
                 <div class="d-flex gap-2 mb-2">
                     <button type="button" id="startVoice" class="btn btn-secondary">
-                        Start Voice Input
+                        <i class="bi bi-mic-fill"></i> Start Voice Input
                     </button>
                     <button type="button" id="stopVoice" class="btn btn-danger" disabled>
-                        Stop Voice Input
+                        <i class="bi bi-stop-fill"></i> Stop Voice Input
                     </button>
                 </div>
                 <textarea class="form-control" name="content" id="content" rows="10" required></textarea>
