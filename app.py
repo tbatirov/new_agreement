@@ -1,4 +1,5 @@
 import os
+import logging
 from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify, g, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
@@ -10,6 +11,11 @@ from services.ai_service import get_template_suggestions, analyze_and_format_tex
 from services.verification_service import DocumentVerificationService
 import io
 import json
+from sqlalchemy.exc import SQLAlchemyError
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Base(DeclarativeBase):
     pass
@@ -76,47 +82,16 @@ def before_request():
     g.languages = app.config['LANGUAGES']
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Error creating database tables: {str(e)}")
+        raise
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
-@app.route('/templates')
-def get_templates():
-    templates = [{"id": key, "name": _(template["name"])} for key, template in AGREEMENT_TEMPLATES.items()]
-    return jsonify(templates)
-
-@app.route('/templates/<template_id>')
-def get_template_content(template_id):
-    template = AGREEMENT_TEMPLATES.get(template_id)
-    if template:
-        return jsonify({"content": _(template["content"])})
-    return jsonify({"error": _("Template not found")}), 404
-
-@app.route('/analyze-text', methods=['POST'])
-def analyze_text():
-    text = request.get_json()
-    if not text or 'content' not in text:
-        return jsonify({"error": _("No content provided")}), 400
-        
-    analysis = analyze_and_format_text(text['content'])
-    if analysis:
-        highlights = highlight_key_elements(text['content'])
-        analysis['highlights'] = highlights
-        return jsonify(analysis)
-    return jsonify({"error": _("Could not analyze text")}), 500
-
-@app.route('/suggest-template', methods=['POST'])
-def suggest_template():
-    data = request.get_json()
-    if not data or 'content' not in data:
-        return jsonify({"error": _("No content provided")}), 400
-        
-    suggestion = get_template_suggestions(data['content'])
-    if suggestion:
-        return jsonify(suggestion)
-    return jsonify({"error": _("Could not generate suggestion")}), 500
 
 @app.route('/create', methods=['GET', 'POST'])
 def create_agreement():
@@ -125,94 +100,146 @@ def create_agreement():
         if not content:
             flash(_('Agreement content is required'), 'error')
             return redirect(url_for('create_agreement'))
+        
+        try:
+            # Start database transaction
+            agreement = Agreement(content=content)
+            db.session.add(agreement)
+            db.session.flush()  # Get the ID without committing
             
-        agreement = Agreement(content=content)
-        
-        # Create verification record
-        verification_data = DocumentVerificationService.create_verification_record(
-            agreement_id=None,  # Will be updated after commit
-            content=content
-        )
-        agreement.verification_data = json.dumps(verification_data)
-        
-        db.session.add(agreement)
-        db.session.commit()
-        
-        # Update verification record with actual agreement ID
-        verification_data['agreement_id'] = agreement.id
-        agreement.verification_code = DocumentVerificationService.generate_verification_code(
-            agreement.id, 
-            verification_data['content_hash']
-        )
-        agreement.verification_data = json.dumps(verification_data)
-        db.session.commit()
-        
-        flash(_('Agreement created successfully'), 'success')
-        return redirect(url_for('sign_agreement', id=agreement.id))
+            # Create verification record with the agreement ID
+            try:
+                verification_data = DocumentVerificationService.create_verification_record(
+                    agreement_id=agreement.id,
+                    content=content
+                )
+                agreement.verification_data = json.dumps(verification_data)
+                
+                # Generate verification code
+                try:
+                    agreement.verification_code = DocumentVerificationService.generate_verification_code(
+                        agreement.id,
+                        verification_data['content_hash']
+                    )
+                except Exception as e:
+                    logger.error(f"Error generating verification code: {str(e)}")
+                    raise ValueError("Failed to generate verification code")
+                
+                # Commit the transaction
+                db.session.commit()
+                logger.info(f"Agreement created successfully with ID: {agreement.id}")
+                
+                flash(_('Agreement created successfully'), 'success')
+                return redirect(url_for('sign_agreement', id=agreement.id))
+                
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error creating verification record: {str(e)}")
+                flash(_('Error creating verification record'), 'error')
+                return redirect(url_for('create_agreement'))
+                
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            logger.error(f"Database error: {str(e)}")
+            flash(_('Error saving agreement'), 'error')
+            return redirect(url_for('create_agreement'))
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Unexpected error: {str(e)}")
+            flash(_('An unexpected error occurred'), 'error')
+            return redirect(url_for('create_agreement'))
+            
     return render_template('create_agreement.html')
 
 @app.route('/verify/<verification_code>')
 def verify_agreement_by_code(verification_code):
-    agreement = Agreement.query.filter_by(verification_code=verification_code).first_or_404()
-    verification_data = json.loads(agreement.verification_data)
-    
-    is_valid, message = DocumentVerificationService.verify_agreement(agreement, verification_data)
-    agreement.last_verified_at = datetime.utcnow()
-    db.session.commit()
-    
-    return render_template(
-        'verify_agreement.html',
-        agreement=agreement,
-        is_valid=is_valid,
-        message=message,
-        verification_data=verification_data
-    )
+    try:
+        agreement = Agreement.query.filter_by(verification_code=verification_code).first_or_404()
+        verification_data = json.loads(agreement.verification_data)
+        
+        is_valid, message = DocumentVerificationService.verify_agreement(agreement, verification_data)
+        agreement.last_verified_at = datetime.utcnow()
+        db.session.commit()
+        
+        return render_template(
+            'verify_agreement.html',
+            agreement=agreement,
+            is_valid=is_valid,
+            message=message,
+            verification_data=verification_data
+        )
+    except Exception as e:
+        logger.error(f"Error verifying agreement: {str(e)}")
+        flash(_('Error verifying agreement'), 'error')
+        return redirect(url_for('index'))
 
 @app.route('/sign/<int:id>', methods=['GET', 'POST'])
 def sign_agreement(id):
-    agreement = Agreement.query.get_or_404(id)
-    if request.method == 'POST':
-        signature1 = request.form.get('signature1')
-        signature2 = request.form.get('signature2')
-        if not signature1 or not signature2:
-            flash(_('Both signatures are required'), 'error')
-            return redirect(url_for('sign_agreement', id=id))
+    try:
+        agreement = Agreement.query.get_or_404(id)
+        if request.method == 'POST':
+            signature1 = request.form.get('signature1')
+            signature2 = request.form.get('signature2')
+            if not signature1 or not signature2:
+                flash(_('Both signatures are required'), 'error')
+                return redirect(url_for('sign_agreement', id=id))
             
-        agreement.signature1 = signature1
-        agreement.signature2 = signature2
-        agreement.signed_at = datetime.utcnow()
-        
-        # Update verification data with signing info
-        verification_data = json.loads(agreement.verification_data)
-        verification_data['status'] = 'signed'
-        verification_data['signed_at'] = agreement.signed_at.isoformat()
-        agreement.verification_data = json.dumps(verification_data)
-        
-        db.session.commit()
-        flash(_('Agreement signed successfully'), 'success')
-        return redirect(url_for('view_agreement', id=id))
-    return render_template('sign_agreement.html', agreement=agreement)
+            try:
+                agreement.signature1 = signature1
+                agreement.signature2 = signature2
+                agreement.signed_at = datetime.utcnow()
+                
+                verification_data = json.loads(agreement.verification_data)
+                verification_data['status'] = 'signed'
+                verification_data['signed_at'] = agreement.signed_at.isoformat()
+                agreement.verification_data = json.dumps(verification_data)
+                
+                db.session.commit()
+                flash(_('Agreement signed successfully'), 'success')
+                return redirect(url_for('view_agreement', id=id))
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error signing agreement: {str(e)}")
+                flash(_('Error signing agreement'), 'error')
+                return redirect(url_for('sign_agreement', id=id))
+                
+        return render_template('sign_agreement.html', agreement=agreement)
+    except Exception as e:
+        logger.error(f"Error accessing agreement: {str(e)}")
+        flash(_('Error accessing agreement'), 'error')
+        return redirect(url_for('index'))
 
 @app.route('/view/<int:id>')
 def view_agreement(id):
-    agreement = Agreement.query.get_or_404(id)
-    verification_data = json.loads(agreement.verification_data)
-    is_valid, message = DocumentVerificationService.verify_agreement(agreement, verification_data)
-    return render_template(
-        'view_agreement.html',
-        agreement=agreement,
-        is_valid=is_valid,
-        message=message,
-        verification_data=verification_data
-    )
+    try:
+        agreement = Agreement.query.get_or_404(id)
+        verification_data = json.loads(agreement.verification_data)
+        is_valid, message = DocumentVerificationService.verify_agreement(agreement, verification_data)
+        return render_template(
+            'view_agreement.html',
+            agreement=agreement,
+            is_valid=is_valid,
+            message=message,
+            verification_data=verification_data
+        )
+    except Exception as e:
+        logger.error(f"Error viewing agreement: {str(e)}")
+        flash(_('Error viewing agreement'), 'error')
+        return redirect(url_for('index'))
 
 @app.route('/download/<int:id>')
 def download_agreement(id):
-    agreement = Agreement.query.get_or_404(id)
-    html = render_template('view_agreement.html', agreement=agreement)
-    pdf = pdfkit.from_string(html, False)
-    return send_file(
-        io.BytesIO(pdf),
-        download_name=f'agreement_{id}.pdf',
-        mimetype='application/pdf'
-    )
+    try:
+        agreement = Agreement.query.get_or_404(id)
+        html = render_template('view_agreement.html', agreement=agreement)
+        pdf = pdfkit.from_string(html, False)
+        return send_file(
+            io.BytesIO(pdf),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'agreement_{id}.pdf'
+        )
+    except Exception as e:
+        logger.error(f"Error downloading agreement: {str(e)}")
+        flash(_('Error downloading agreement'), 'error')
+        return redirect(url_for('view_agreement', id=id))
