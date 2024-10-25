@@ -25,6 +25,7 @@
                         <i class="bi bi-file-earmark-text"></i> Load Template
                     </button>
                 </div>
+                <div id="templateFeedback" class="alert d-none"></div>
                 <div id="suggestionBox" class="alert alert-success d-none">
                     <h6><i class="bi bi-lightbulb"></i> AI Suggestion:</h6>
                     <p id="suggestionText" class="mb-2"></p>
@@ -52,8 +53,17 @@
         <div class="sticky-top pt-3">
             <h3>Real-time Preview</h3>
             <div class="card mb-3">
-                <div class="card-body" id="previewContent">
-                    <p class="text-muted">Start typing to see the preview...</p>
+                <div class="card-body position-relative">
+                    <div id="previewSpinner" class="position-absolute w-100 h-100 top-0 start-0 d-none">
+                        <div class="d-flex justify-content-center align-items-center h-100 bg-dark bg-opacity-25">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="previewContent">
+                        <p class="text-muted">Start typing to see the preview...</p>
+                    </div>
                 </div>
             </div>
             <div id="analysisSection" class="d-none">
@@ -109,10 +119,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionText = document.getElementById('suggestionText');
     const applySuggestionBtn = document.getElementById('applySuggestion');
     const previewContent = document.getElementById('previewContent');
+    const previewSpinner = document.getElementById('previewSpinner');
     const analysisSection = document.getElementById('analysisSection');
     const keyTermsList = document.getElementById('keyTermsList');
     const missingDetailsList = document.getElementById('missingDetailsList');
     const suggestionsList = document.getElementById('suggestionsList');
+    const templateFeedback = document.getElementById('templateFeedback');
     
     let templates = {};
     let suggestionTimeout = null;
@@ -130,36 +142,80 @@ document.addEventListener('DOMContentLoaded', () => {
                 templateSelect.appendChild(option);
             });
         })
-        .catch(error => console.error('Error loading templates:', error));
+        .catch(error => {
+            console.error('Error loading templates:', error);
+            showTemplateFeedback('Error loading templates. Please try again.', 'danger');
+        });
+
+    function showTemplateFeedback(message, type) {
+        templateFeedback.textContent = message;
+        templateFeedback.className = `alert alert-${type}`;
+        templateFeedback.classList.remove('d-none');
+        setTimeout(() => {
+            templateFeedback.classList.add('d-none');
+        }, 5000);
+    }
+
+    function showPreviewSpinner(show = true) {
+        if (show) {
+            previewSpinner.classList.remove('d-none');
+        } else {
+            previewSpinner.classList.add('d-none');
+        }
+    }
 
     function loadSelectedTemplate() {
         const selectedTemplate = templateSelect.value;
         if (selectedTemplate) {
+            showPreviewSpinner(true);
+            showTemplateFeedback('Loading template...', 'info');
+
             fetch(`/templates/${selectedTemplate}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.content) {
                         contentArea.value = data.content;
+                        
+                        // Update preview immediately with basic formatting
+                        const formattedContent = data.content.replace(/\n/g, '<br>');
+                        previewContent.innerHTML = formattedContent;
+                        
+                        // Trigger AI analysis after showing the preview
                         updatePreviewAndAnalysis();
+                        showTemplateFeedback('Template loaded successfully!', 'success');
                     }
                 })
-                .catch(error => console.error('Error loading template content:', error));
+                .catch(error => {
+                    console.error('Error loading template content:', error);
+                    showTemplateFeedback('Error loading template content. Please try again.', 'danger');
+                })
+                .finally(() => {
+                    showPreviewSpinner(false);
+                });
         }
     }
 
     function updatePreviewAndAnalysis() {
         const content = contentArea.value.trim();
         
-        // Update preview immediately
-        previewContent.innerHTML = content ? content.replace(/\n/g, '<br>') : '<p class="text-muted">Start typing to see the preview...</p>';
+        // Clear existing timeouts
+        if (analysisTimeout) {
+            clearTimeout(analysisTimeout);
+        }
+        
+        if (!content) {
+            previewContent.innerHTML = '<p class="text-muted">Start typing to see the preview...</p>';
+            analysisSection.classList.add('d-none');
+            return;
+        }
+
+        // Show basic preview immediately
+        previewContent.innerHTML = content.replace(/\n/g, '<br>');
         
         if (content.length > 20) {
-            if (analysisTimeout) {
-                clearTimeout(analysisTimeout);
-            }
+            showPreviewSpinner(true);
             
             analysisTimeout = setTimeout(() => {
-                // Get AI analysis
                 fetch('/analyze-text', {
                     method: 'POST',
                     headers: {
@@ -199,7 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         // Highlight key elements
                         if (data.highlights) {
-                            // Add highlighting styles for amounts, dates, and names
                             Object.entries(data.highlights).forEach(([type, elements]) => {
                                 elements.forEach(element => {
                                     const regex = new RegExp(element.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
@@ -214,12 +269,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
                 .catch(error => {
                     console.error('Error analyzing text:', error);
+                    showTemplateFeedback('Error analyzing text. Please try again.', 'warning');
+                })
+                .finally(() => {
+                    showPreviewSpinner(false);
                 });
             }, 1000);
         } else {
             analysisSection.classList.add('d-none');
         }
     }
+
+    // Event listener for template selection
+    templateSelect.addEventListener('change', () => {
+        if (templateSelect.value) {
+            loadSelectedTemplate();
+        } else {
+            contentArea.value = '';
+            previewContent.innerHTML = '<p class="text-muted">Start typing to see the preview...</p>';
+            analysisSection.classList.add('d-none');
+        }
+    });
 
     // Get template suggestions based on user input
     contentArea.addEventListener('input', () => {
