@@ -1,9 +1,10 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, send_file
+from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 import pdfkit
 from datetime import datetime
+from templates import AGREEMENT_TEMPLATES
 import io
 
 class Base(DeclarativeBase):
@@ -26,6 +27,18 @@ with app.app_context():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/templates')
+def get_templates():
+    templates = [{"id": key, "name": template["name"]} for key, template in AGREEMENT_TEMPLATES.items()]
+    return jsonify(templates)
+
+@app.route('/templates/<template_id>')
+def get_template_content(template_id):
+    template = AGREEMENT_TEMPLATES.get(template_id)
+    if template:
+        return jsonify({"content": template["content"]})
+    return jsonify({"error": "Template not found"}), 404
 
 @app.route('/create', methods=['GET', 'POST'])
 def create_agreement():
