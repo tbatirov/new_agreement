@@ -5,6 +5,7 @@ from sqlalchemy.orm import DeclarativeBase
 import pdfkit
 from datetime import datetime
 from templates import AGREEMENT_TEMPLATES
+from services.ai_service import get_template_suggestions
 import io
 
 class Base(DeclarativeBase):
@@ -39,6 +40,17 @@ def get_template_content(template_id):
     if template:
         return jsonify({"content": template["content"]})
     return jsonify({"error": "Template not found"}), 404
+
+@app.route('/suggest-template', methods=['POST'])
+def suggest_template():
+    user_input = request.json.get('content', '')
+    if not user_input:
+        return jsonify({"error": "No content provided"}), 400
+        
+    suggestion = get_template_suggestions(user_input)
+    if suggestion:
+        return jsonify(suggestion)
+    return jsonify({"error": "Could not generate suggestion"}), 500
 
 @app.route('/create', methods=['GET', 'POST'])
 def create_agreement():

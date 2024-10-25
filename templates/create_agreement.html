@@ -25,6 +25,13 @@
                         <i class="bi bi-file-earmark-text"></i> Load Template
                     </button>
                 </div>
+                <div id="suggestionBox" class="alert alert-success d-none">
+                    <h6><i class="bi bi-lightbulb"></i> AI Suggestion:</h6>
+                    <p id="suggestionText" class="mb-2"></p>
+                    <button type="button" id="applySuggestion" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-check-lg"></i> Use this template
+                    </button>
+                </div>
             </div>
             <div class="mb-3">
                 <label class="form-label">Agreement Content</label>
@@ -51,12 +58,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const templateSelect = document.getElementById('templateSelect');
     const loadTemplateBtn = document.getElementById('loadTemplate');
     const contentArea = document.getElementById('content');
+    const suggestionBox = document.getElementById('suggestionBox');
+    const suggestionText = document.getElementById('suggestionText');
+    const applySuggestionBtn = document.getElementById('applySuggestion');
+    
+    let templates = {};
+    let suggestionTimeout = null;
 
     // Fetch available templates
     fetch('/templates')
         .then(response => response.json())
-        .then(templates => {
-            templates.forEach(template => {
+        .then(templatesData => {
+            templatesData.forEach(template => {
+                templates[template.id] = template;
                 const option = document.createElement('option');
                 option.value = template.id;
                 option.textContent = template.name;
@@ -66,7 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(error => console.error('Error loading templates:', error));
 
     // Load template content when requested
-    loadTemplateBtn.addEventListener('click', () => {
+    loadTemplateBtn.addEventListener('click', () => loadSelectedTemplate());
+
+    function loadSelectedTemplate() {
         const selectedTemplate = templateSelect.value;
         if (selectedTemplate) {
             fetch(`/templates/${selectedTemplate}`)
@@ -78,6 +94,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
                 .catch(error => console.error('Error loading template content:', error));
         }
+    }
+
+    // Get template suggestions based on user input
+    contentArea.addEventListener('input', () => {
+        if (suggestionTimeout) {
+            clearTimeout(suggestionTimeout);
+        }
+        
+        suggestionTimeout = setTimeout(() => {
+            const content = contentArea.value.trim();
+            if (content.length > 20) { // Only suggest after meaningful input
+                fetch('/suggest-template', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ content }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.template_id && data.confidence > 0.6) { // Show only high-confidence suggestions
+                        suggestionText.innerHTML = `
+                            <strong>${data.best_match}</strong><br>
+                            <small class="text-muted">${data.explanation}</small>
+                        `;
+                        suggestionBox.classList.remove('d-none');
+                        // Pre-select the suggested template
+                        templateSelect.value = data.template_id;
+                    } else {
+                        suggestionBox.classList.add('d-none');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error getting template suggestions:', error);
+                    suggestionBox.classList.add('d-none');
+                });
+            }
+        }, 1000); // Wait for 1 second after user stops typing
+    });
+
+    // Apply suggestion when clicked
+    applySuggestionBtn.addEventListener('click', () => {
+        loadSelectedTemplate();
+        suggestionBox.classList.add('d-none');
     });
 });
 </script>
